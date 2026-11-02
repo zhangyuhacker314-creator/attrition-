@@ -293,6 +293,79 @@ body{
 .userbadge a{color:var(--paper-dim);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .userbadge a:hover{color:var(--amber)}
 
+/* ---------- war / fleet / cards ---------- */
+#warSetupScreen .panel,#fleetScreen .panel,#cardScreen .panel{max-width:820px}
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px}
+@media (max-width:720px){.col2{grid-template-columns:1fr}}
+.colhead{
+  font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:8px;
+  padding-bottom:7px;border-bottom:1px solid var(--line-soft);
+}
+.scrollbox{max-height:min(36vh,330px);overflow-y:auto;padding-right:4px}
+.scrollbox::-webkit-scrollbar{width:8px}
+.scrollbox::-webkit-scrollbar-track{background:var(--ink)}
+.scrollbox::-webkit-scrollbar-thumb{background:var(--line)}
+
+.fleet-row{
+  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  padding:10px 4px;border-bottom:1px solid var(--line-soft);
+}
+.fleet-row.spent{opacity:.4}
+.fleet-row.flag{background:var(--amber-soft)}
+.fleet-nm{font-size:1rem;font-weight:600;letter-spacing:.03em;color:var(--paper)}
+.fleet-st{
+  grid-column:1;font-family:'IBM Plex Mono',monospace;font-size:.62rem;
+  letter-spacing:.08em;color:var(--paper-dark);margin-top:3px;
+}
+.fleet-btns{grid-row:1/3;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.flagmark{
+  font-family:'IBM Plex Mono',monospace;font-size:.52rem;letter-spacing:.18em;
+  color:#20180a;background:var(--amber);padding:2px 5px;margin-right:8px;vertical-align:middle;
+}
+
+.diff-row{
+  padding:12px 14px;border:1px solid var(--line-soft);margin-bottom:9px;cursor:pointer;
+  transition:border-color .12s,background .12s;
+}
+.diff-row:hover{border-color:var(--paper-dark)}
+.diff-row.on{border-color:var(--amber);background:var(--amber-soft)}
+.diff-nm{font-size:1.15rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.diff-st{color:var(--paper-dim);font-size:.84rem;margin-top:3px;line-height:1.35}
+.diff-mul{
+  font-family:'IBM Plex Mono',monospace;font-size:.64rem;letter-spacing:.14em;
+  color:var(--amber);margin-top:6px;text-transform:uppercase;
+}
+
+.card-row{
+  display:grid;grid-template-columns:42px 1fr auto;gap:13px;align-items:center;
+  padding:11px 4px;border-bottom:1px solid var(--line-soft);
+}
+.card-pip{
+  width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono',monospace;font-size:.62rem;font-weight:600;
+  letter-spacing:.06em;color:#12161a;
+}
+.card-mid h4{margin:0 0 3px;font-size:1rem;font-weight:600;letter-spacing:.03em;color:var(--paper)}
+.card-mid p{margin:0;color:var(--paper-dim);font-size:.82rem;line-height:1.35}
+.card-tag{
+  font-family:'IBM Plex Mono',monospace;font-size:.56rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--paper-dark);margin-top:4px;
+}
+.card-right{display:flex;align-items:center;gap:9px}
+.card-ct{font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--amber)}
+.card-row.r-hyper{background:rgba(217,79,138,.07)}
+.card-row.r-ir{background:rgba(194,103,63,.06)}
+
+.filters{display:flex;gap:0;flex-wrap:wrap;margin:14px 0 2px;border-bottom:1px solid var(--line-soft)}
+.filters .tab{font-size:.64rem;padding:8px 11px}
+
+.warbar{
+  font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.1em;
+  color:var(--paper-dim);line-height:1.8;margin-top:16px;
+}
+.warbar b{color:var(--amber)}
+
 /* ---------- leaderboard ---------- */
 #boardScreen .panel{max-width:720px}
 .board-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap}
@@ -421,6 +494,7 @@ table.board tr.you td.nm::after{
       <button class="btn btn-go" id="btnStart">Begin Tour</button>
       <button class="btn" id="btnDiscoverTitle">Discovery Flight</button>
       <button class="btn" id="btnLearnTitle">Learn to Fly</button>
+      <button class="btn" id="btnWarTitle">War</button>
       <button class="btn" id="btnBoardTitle">Ace Board</button>
     </div>
     <div class="sub" style="margin-top:6px;font-size:.82rem;opacity:.72">
@@ -460,6 +534,8 @@ table.board tr.you td.nm::after{
     <hr class="rule" />
     <div class="hangar-foot">
       <div class="readout" id="loadout"></div>
+      <button class="btn" id="btnWarHangarOpen">War</button>
+      <button class="btn" id="btnCardsHangar">Cards</button>
       <button class="btn" id="btnBoardHangar">Ace Board</button>
       <button class="btn" id="btnLearn">Learn to Fly</button>
       <button class="btn" id="btnDiscover">Discovery Flight</button>
@@ -524,6 +600,128 @@ table.board tr.you td.nm::after{
     <div class="actions" style="justify-content:space-between">
       <button class="btn btn-sm" id="btnBoardRefresh">Refresh</button>
       <button class="btn btn-go" id="btnBoardBack">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FLEET BUILDER ============ -->
+<div class="screen" id="fleetScreen">
+  <div class="panel">
+    <div class="hangar-head">
+      <div>
+        <div class="eyebrow">Forward Airfield · Order of Battle</div>
+        <h2 class="stencil">Fleet</h2>
+      </div>
+      <div class="funds">
+        <div class="lbl">Assigned</div>
+        <div class="val" id="fleetCount">0/20</div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:10px">
+      Assign up to twenty of your aircraft. You fly the one marked
+      <b>FLAG</b> — the rest fly as wingmen under their own steam. If your
+      flagship goes down, the war is lost.
+    </p>
+    <div class="col2">
+      <div>
+        <div class="colhead">Available Airframes</div>
+        <div class="scrollbox" id="fleetPool"></div>
+      </div>
+      <div>
+        <div class="colhead">Assigned Fleet</div>
+        <div class="scrollbox" id="fleetList"></div>
+      </div>
+    </div>
+    <hr class="rule" />
+    <div class="hangar-foot">
+      <div class="readout">Flagship <b id="fleetFlagName">—</b></div>
+      <button class="btn" id="btnFleetBack">Back</button>
+      <button class="btn btn-go" id="btnFleetWar">To War Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CARDS ============ -->
+<div class="screen" id="cardScreen">
+  <div class="panel">
+    <div class="hangar-head">
+      <div>
+        <div class="eyebrow">Quartermaster · Salvaged Materiel</div>
+        <h2 class="stencil">Cards</h2>
+      </div>
+      <div class="funds">
+        <div class="lbl">Held</div>
+        <div class="val" id="cardTotal">0</div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:10px">
+      Won from wars. Arm one before a match and it burns on use — win or
+      lose. Armed: <b id="cardArmed">None</b>
+    </p>
+    <div class="filters">
+      <button class="tab on" data-cf="all">All</button>
+      <button class="tab" data-cf="common">C</button>
+      <button class="tab" data-cf="r">R</button>
+      <button class="tab" data-cf="sr">SR</button>
+      <button class="tab" data-cf="ssr">SSR</button>
+      <button class="tab" data-cf="ir">IR</button>
+      <button class="tab" data-cf="hyper">Hyper</button>
+    </div>
+    <div class="scrollbox" id="cardList" style="max-height:min(44vh,400px);margin-top:4px"></div>
+    <hr class="rule" />
+    <div class="actions" style="justify-content:space-between">
+      <button class="btn btn-sm" id="btnCardClear">Unarm</button>
+      <button class="btn btn-go" id="btnCardBack">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WAR ROOM ============ -->
+<div class="screen" id="warSetupScreen">
+  <div class="panel">
+    <div class="hangar-head">
+      <div>
+        <div class="eyebrow">Theatre Command · Operation Orders</div>
+        <h2 class="stencil">War Room</h2>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:10px">
+      One of their aircraft is the enemy flagship. Nothing marks it out —
+      shoot it down and the rest break off. Harder odds pay more and drop
+      better cards.
+    </p>
+    <div class="scrollbox" id="diffList" style="max-height:min(40vh,360px);margin-top:16px"></div>
+    <div class="warbar">
+      Fleet <b id="warFleetSize">0</b> aircraft &nbsp;·&nbsp;
+      Flagship <b id="warFlagName">—</b> &nbsp;·&nbsp;
+      Card <b id="warCardName">none armed</b>
+    </div>
+    <hr class="rule" />
+    <div class="hangar-foot">
+      <button class="btn" id="btnWarBack">Back</button>
+      <button class="btn" id="btnWarFleet">Edit Fleet</button>
+      <button class="btn" id="btnWarCards">Cards</button>
+      <button class="btn btn-go" id="btnWarGo">Declare War</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WAR RESULT ============ -->
+<div class="screen" id="warResultScreen">
+  <div class="panel center">
+    <div class="eyebrow" id="warResEyebrow">War</div>
+    <h2 class="stencil" id="warResTitle">Result</h2>
+    <p class="sub" id="warResText" style="margin-inline:auto"></p>
+    <div class="grid4">
+      <div class="cell"><div class="k">Kills</div><div class="v" id="wKills">0</div></div>
+      <div class="cell"><div class="k">Pay</div><div class="v amber" id="wEarned">$0</div></div>
+      <div class="cell"><div class="k">Wingmen Lost</div><div class="v rust" id="wLost">0</div></div>
+      <div class="cell"><div class="k">Multiplier</div><div class="v" id="wMul">x1</div></div>
+    </div>
+    <div id="warCardSlot" style="margin-top:18px;text-align:left"></div>
+    <div class="actions">
+      <button class="btn" id="btnWarAgain">War Room</button>
+      <button class="btn btn-go" id="btnWarHangar">Return to Hangar</button>
     </div>
   </div>
 </div>
@@ -766,11 +964,16 @@ function newProfile(){
     ownedPlanes:{kestrel:true}, ownedWeapons:{mg77:true},
     up:{armor:0,tank:0,engine:0,cooling:0,sight:0,thirst:0,racks:0,scav:0},
     totalKills:0, sorties:0, best:0, rounds:0,
+    fleet:[], flagship:0, cards:{}, warWins:0, warLosses:0,
   };
 }
 
 /* derived stats */
-function planeDef(){ return PLANES.find(p=>p.id===P.plane); }
+function planeDef(){
+  // during a war the player flies the fleet flagship, not the hangar plane
+  if(S && S.war && S.war.flagDef) return S.war.flagDef;
+  return PLANES.find(p=>p.id===P.plane);
+}
 function wDef(id){ return WEAPONS.find(w=>w.id===id); }
 function weaponDef(){ return wDef(P.loadout&&P.loadout[0]) || wDef(P.weapon) || WEAPONS[0]; }
 
@@ -817,10 +1020,10 @@ function spendAmmo(id,n){ P.ammo[id]=Math.max(0, ammoOf(id)-n); }
 function boxesToFill(w){ return Math.max(0, Math.ceil((ammoCap(w)-ammoOf(w.id))/w.box)); }
 function loadoutDry(){ return mounted().filter(id=>ammoOf(id)<=0); }
 
-function maxHP(){ return planeDef().hp + P.up.armor*30; }
-function maxFuel(){ return 100 + P.up.tank*28; }
-function spdMul(){ return 1 + P.up.engine*.07; }
-function rateMul(){ return 1 - P.up.cooling*.09; }
+function maxHP(){ return Math.round((planeDef().hp + P.up.armor*30) * EF().hpMul); }
+function maxFuel(){ return (100 + P.up.tank*28) * EF().fuelMul; }
+function spdMul(){ return (1 + P.up.engine*.07) * EF().speedMul; }
+function rateMul(){ return (1 - P.up.cooling*.09) * EF().rateMul; }
 function spreadMul(){ return 1 - P.up.sight*.22; }
 function burnMul(){ return 1 - P.up.thirst*.13; }
 function upCost(u){ const lv=P.up[u.id]; return Math.round(u.cost*Math.pow(u.mult,lv)); }
@@ -1146,7 +1349,7 @@ function update(dt){
     if(Math.hypot(tx,ty)>14){
       const want=Math.atan2(ty,tx);
       const pd=planeDef();
-      const rate=pd.turn*spdMul()*(dt/16.67);
+      const rate=pd.turn*spdMul()*EF().turnMul*(dt/16.67);
       const d=angDiff(pl.a,want);
       applied=clamp(d,-rate,rate);
       pl.a += applied;
@@ -1220,8 +1423,11 @@ function update(dt){
     e.hitFlash=Math.max(0,e.hitFlash-dt);
     e.wob+=dt*0.003;
 
-    const toP=Math.atan2(pl.y-e.y, pl.x-e.x);
-    const dp=dist(e,pl);
+    // in a war an enemy may be chasing a wingman instead of the player;
+    // outside war `tgt` is always the player, so nothing changes
+    const tgt=(S.war && e.wtgt && !e.wtgt.dead) ? e.wtgt : pl;
+    const toP=Math.atan2(tgt.y-e.y, tgt.x-e.x);
+    const dp=dist(e,tgt);
 
     // Discovery bandits loiter on patrol and ignore you until you fly into
     // their airspace (or shoot first) — that's what makes combat optional.
@@ -1257,19 +1463,20 @@ function update(dt){
     e.a += turn;
     e.bank = lerp(e.bank||0, turn/((dt/16.67)||1), 0.18*(dt/16.67));
 
-    const es=d.speed*(dt/16.67);
+    const es=d.speed*EF().enemySpeedMul*(dt/16.67);
     e.x+=Math.cos(e.a)*es; e.y+=Math.sin(e.a)*es;
     e.x=clamp(e.x,-arenaBound-300,arenaBound+300); e.y=clamp(e.y,-arenaBound-300,arenaBound+300);
 
     // shooting: lead the target
     e.cool-=dt;
-    if(e.cool<=0 && dp<d.range && !pl.dead){
+    if(e.cool<=0 && dp<d.range && !tgt.dead){
       const aimErr = Math.abs(angDiff(e.a,toP));
       if(aimErr<0.34){
         e.cool=d.rate*rnd(.85,1.2);
         const t=dp/d.bspd;
-        const px=pl.x+Math.cos(pl.a)*planeDef().speed*pl.thr*t*d.lead;
-        const py=pl.y+Math.sin(pl.a)*planeDef().speed*pl.thr*t*d.lead;
+        const tspd=(tgt.pdef?tgt.pdef.speed:planeDef().speed)*(tgt.thr||1);
+        const px=tgt.x+Math.cos(tgt.a)*tspd*t*d.lead;
+        const py=tgt.y+Math.sin(tgt.a)*tspd*t*d.lead;
         const ba=Math.atan2(py-e.y,px-e.x)+rnd(-.045,.045);
         const shots=d.twin?2:1;
         for(let i=0;i<shots;i++){
@@ -1307,7 +1514,8 @@ function update(dt){
 
   /* ---- player bullets ---- */
   for(const b of S.bullets){
-    b.x+=b.vx*(dt/16.67); b.y+=b.vy*(dt/16.67); b.life-=dt;
+    const bsm=b.ally?1:EF().bSpeedMul;
+    b.x+=b.vx*bsm*(dt/16.67); b.y+=b.vy*bsm*(dt/16.67); b.life-=dt;
     b.spin+=dt*.02;
     // rockets lay a smoke trail behind them
     if(b.kind==='rocket'){
@@ -1317,14 +1525,26 @@ function update(dt){
       }
     }
     if(b.life<=0) continue;
+    // a pierce card rolls once per round, the first time it matters
+    if(!b.ally && b.pierceRolled===undefined){
+      b.pierceRolled=true;
+      const pef=EF();
+      if(pef.pierceAdd>0 && Math.random()<pef.pierceAdd) b.pierce=(b.pierce||0)+pef.pierceN;
+    }
     for(const e of S.enemies){
       if(e.dead) continue;
       if(b.hit && b.hit.indexOf(e)>=0) continue;
       const d=ENEMY[e.type];
       if(dist(b,e) < d.span*0.46){
         S.hits++;
-        if(b.splash) splashDamage(b.x,b.y,b.splash,b.dmg);
-        else damageEnemy(e,b.dmg);
+        let bdmg=b.dmg;
+        if(!b.ally){
+          const pef=EF();
+          bdmg*=pef.dmgMul;
+          if(pef.critChance>0 && Math.random()<pef.critChance){ bdmg*=2.5; }
+        }
+        if(b.splash) splashDamage(b.x,b.y,b.splash,bdmg);
+        else damageEnemy(e,bdmg);
         if(b.burn) igniteEnemy(e,b.burn);
         hitSpark(b.x,b.y,b.tracer);
         if(b.pierce>0 && !b.splash){
@@ -1353,9 +1573,26 @@ function update(dt){
     if(b.life<=0||pl.dead) continue;
     if(dist(b,pl) < 16){
       b.life=0;
-      pl.hp-=b.dmg; pl.hitFlash=180; S.shake=Math.max(S.shake,7);
+      let inc=b.dmg*EF().enemyDmgMul;
+      if(S.shieldHp>0){                    // a deflector card soaks hits first
+        const soak=Math.min(S.shieldHp,inc);
+        S.shieldHp-=soak; inc-=soak;
+      }
+      pl.hp-=inc; pl.hitFlash=180; S.shake=Math.max(S.shake,7);
       hitSpark(b.x,b.y,'#e8c98c');
       if(pl.hp<=0){ pl.hp=0; killPlayer('shot'); }
+    }
+  }
+  // in a war, enemy rounds can hit wingmen too
+  if(S.war && S.allies){
+    for(const b of S.ebullets){
+      if(b.life<=0) continue;
+      for(const al of S.allies){
+        if(al.dead) continue;
+        if(Math.hypot(b.x-al.x,b.y-al.y) < al.pdef.span*0.42){
+          b.life=0; damageAlly(al,b.dmg); hitSpark(b.x,b.y,'#e8c98c'); break;
+        }
+      }
     }
   }
   S.ebullets=S.ebullets.filter(b=>b.life>0);
@@ -1457,6 +1694,46 @@ function update(dt){
 
   /* ---- learn-to-fly lesson tick (gates, targets, tips) ---- */
   if(S.learn) updateLearn(dt);
+
+  /* ---- war tick ---- */
+  if(S.war){
+    if(S.war.ended) return;          // the result screen is already up
+    if(EF().regen>0 && !pl.dead) pl.hp=Math.min(maxHP(), pl.hp+EF().regen*dt/1000);
+    updateAllies(dt);
+    if(!S.war.revealed && S.war.enemyTotal){
+      const downed = S.war.enemyTotal - S.enemies.length;
+      const ef2=EF();
+      if(ef2.revealAt>0 && downed/S.war.enemyTotal >= (1-ef2.revealAt)){
+        S.war.revealed=true;
+        toast('Signals intercept · enemy flagship marked');
+      }
+    }
+    // keep every enemy chasing something: the player, or a nearby wingman
+    for(const e of S.enemies){
+      if(e.dead) continue;
+      if(!e.wtgt || e.wtgt.dead || Math.random()<0.004){
+        if(S.allies && S.allies.length && Math.random()<0.6){
+          e.wtgt=S.allies[rndi(0,S.allies.length-1)];
+        } else e.wtgt=null;
+      }
+    }
+    if(!S.over && !pl.dead && S.war.won){ S.over=true; S.endT=1100; }
+    if(S.over && !pl.dead){
+      S.endT-=dt;
+      if(S.endT<=0){ endWar(true); return; }
+    }
+    if(pl.dead){
+      S.endT-=dt;
+      if(S.endT<=0){ endWar(false); return; }
+    }
+    updateHUD();
+    return;
+  }
+
+  /* ---- hull regeneration from a Field Repairs card ---- */
+  if(EF().regen>0 && !pl.dead){
+    pl.hp=Math.min(maxHP(), pl.hp+EF().regen*dt/1000);
+  }
 
   /* ---- win condition (combat sorties only) ---- */
   if(!S.discovery && !S.learn){
@@ -1568,6 +1845,11 @@ function damageEnemy(e,dmg){
     const d=ENEMY[e.type];
     const reward=Math.round(d.reward*(1+(P.wave-1)*0.09));
     S.kills++; S.earned+=reward; P.totalKills++;
+    const kef=EF();
+    if(kef.vampire>0 && S.plane && !S.plane.dead){
+      S.plane.hp=Math.min(maxHP(), S.plane.hp+kef.vampire);
+    }
+    if(S.war && e.warFlag){ S.war.won=true; }
     explode(e.x,e.y, e.type==='heavy'?1.7:1);
     toast('+'+money(reward)+'  ·  '+d.name+' down');
     const luck = P.up.scav*0.12;
@@ -1648,6 +1930,16 @@ function hitSpark(x,y,c){
 function killPlayer(reason){
   const pl=S.plane;
   if(pl.dead) return;
+  // a Guardian Angel card puts you straight back in the air
+  if(S.reviveLeft>0){
+    S.reviveLeft--;
+    pl.hp=Math.max(1, Math.round(maxHP()*EF().revive));
+    pl.fuel=Math.max(pl.fuel, maxFuel()*0.35);
+    pl.hitFlash=400; S.shake=14;
+    explode(pl.x,pl.y,1.2);
+    toast('Guardian Angel · back in the air ('+S.reviveLeft+' left)');
+    return;
+  }
   pl.dead=true; S.endT=1600;
   explode(pl.x,pl.y,1.9);
   S.warn = reason==='fuel'?'Fuel Starvation':'Aircraft Destroyed';
@@ -1673,6 +1965,7 @@ function render(){
   if(S.learn) drawLearnWorld();           // training gates + balloon targets
   drawPickups();
   drawSmoke();
+  if(S.war) drawAllies();
   drawEnemies();
   if(!pl.dead) drawPlayer();
   drawBullets();
@@ -2387,6 +2680,27 @@ function drawPlayer(){
      fire: frac<0.30 ? (0.30-frac)/0.30 : 0});
 }
 
+function drawAllies(){
+  if(!S.allies) return;
+  for(const al of S.allies){
+    if(al.dead) continue;
+    const pd=al.pdef, f=clamp(al.hp/al.maxhp,0,1);
+    drawAircraft(al.x,al.y,al.a, pd.len||27, pd.span||38, pd.tone, pd.accent,
+      {flash:al.hitFlash, mark:'#3f5a74', jet:!!pd.jet, seed:al.seed||0, nav:true,
+       bank:clamp((al.bank||0)/(pd.turn+1e-6),-1,1),
+       fire: f<0.30 ? (0.30-f)/0.30 : 0});
+    // friendly chevron so you can tell them from the enemy at a glance
+    cx.save();
+    cx.strokeStyle='rgba(125,180,215,.85)'; cx.lineWidth=1.6;
+    cx.beginPath();
+    cx.moveTo(al.x-5, al.y-pd.span*0.52);
+    cx.lineTo(al.x,   al.y-pd.span*0.52-4);
+    cx.lineTo(al.x+5, al.y-pd.span*0.52);
+    cx.stroke();
+    cx.restore();
+  }
+}
+
 function drawEnemies(){
   for(const e of S.enemies){
     const d=ENEMY[e.type];
@@ -2397,6 +2711,17 @@ function drawEnemies(){
        guns: e.type==='ace'?2:(e.type==='fighter'?1:0),
        nacelle: e.type==='heavy', nav: e.type==='ace',
        fire: (e.burnT>0?0.6:0) + (ef<0.25?(0.25-ef)/0.25:0)});
+    // the enemy flagship, once a card or the fighting has revealed it
+    if(S.war && e.warFlag && S.war.revealed){
+      cx.save();
+      cx.strokeStyle='#d94f8a'; cx.lineWidth=2;
+      const rr=ENEMY[e.type].span*0.62;
+      cx.beginPath(); cx.arc(e.x,e.y,rr,0,TAU); cx.stroke();
+      cx.font='600 9px IBM Plex Mono, monospace';
+      cx.fillStyle='#d94f8a'; cx.textAlign='center';
+      cx.fillText('FLAGSHIP', e.x, e.y-rr-6);
+      cx.restore();
+    }
     // health pip above damaged enemies
     if(e.hp<e.maxhp){
       const w=d.span*0.85, h=2.4;
@@ -2746,7 +3071,12 @@ function updateHUD(){
     const tot=(typeof LEARN_STEPS!=='undefined')?LEARN_STEPS.length-1:5;
     $('hudLeft').textContent='Lesson '+Math.min((S.step||0)+1,tot)+'/'+tot;
   } else {
-    $('hudLeft').textContent='Bandits '+(S.enemies.length+S.spawnQueue.length);
+    if(S.war){
+      const wing=S.allies?S.allies.length:0;
+      $('hudLeft').textContent='Hostiles '+S.enemies.length+'  ·  Wing '+wing;
+    } else {
+      $('hudLeft').textContent='Bandits '+(S.enemies.length+S.spawnQueue.length);
+    }
   }
 
   const wn=$('warn');
@@ -2840,7 +3170,7 @@ function renderShop(){
 
   if(shopTab==='planes'){
     for(const [pi,p] of PLANES.entries()){
-      const owned=!!P.ownedPlanes[p.id], equipped=P.plane===p.id;
+      const nOwned=planeCount(p.id), owned=nOwned>0, equipped=P.plane===p.id;
       const row=document.createElement('div'); row.className='item';
       row.appendChild(thumbFor('plane',p));
       const mid=document.createElement('div');
@@ -2854,22 +3184,34 @@ function renderShop(){
         </div>`;
       row.appendChild(mid);
       const col=document.createElement('div'); col.className='buycol';
-      if(equipped){
-        col.innerHTML='<div class="price" style="color:var(--sage)">In Service</div>';
-        const b=document.createElement('button'); b.className='btn btn-sm btn-equipped'; b.textContent='Equipped'; b.disabled=true;
-        col.appendChild(b);
-      } else if(owned){
-        col.innerHTML='<div class="price" style="color:var(--paper-dark)">Owned</div>';
-        const b=document.createElement('button'); b.className='btn btn-sm'; b.textContent='Deploy';
-        b.onclick=()=>{ P.plane=p.id; normalizeLoadout(); renderShop(); };
-        col.appendChild(b);
-      } else {
-        const can=P.money>=p.cost;
-        col.innerHTML=`<div class="price ${can?'':'cant'}">${money(p.cost)}</div>`;
-        const b=document.createElement('button'); b.className='btn btn-sm'+(can?' btn-go':''); b.textContent='Purchase'; b.disabled=!can;
-        b.onclick=()=>{ if(P.money>=p.cost){ P.money-=p.cost; P.ownedPlanes[p.id]=true; P.plane=p.id; normalizeLoadout(); renderShop(); } };
-        col.appendChild(b);
+      const can=P.money>=p.cost;
+      col.innerHTML = owned
+        ? `<div class="price ${can?'':'cant'}">${money(p.cost)}</div><div class="lvl">OWNED x${nOwned}</div>`
+        : `<div class="price ${can?'':'cant'}">${money(p.cost)}</div>`;
+      const row2=document.createElement('div'); row2.className='row2';
+      // buy as many as you like — spares fly as wingmen in a war
+      const buy=document.createElement('button');
+      buy.className='btn btn-sm'+(can&&!owned?' btn-go':'');
+      buy.textContent = owned ? 'Buy Another' : 'Purchase';
+      buy.disabled=!can;
+      buy.onclick=()=>{
+        if(P.money>=p.cost){
+          P.money-=p.cost; addPlane(p.id,1);
+          if(!equipped && nOwned===0){ P.plane=p.id; normalizeLoadout(); }
+          saveProfile(); renderShop();
+        }
+      };
+      row2.appendChild(buy);
+      if(owned && !equipped){
+        const d=document.createElement('button'); d.className='btn btn-sm'; d.textContent='Deploy';
+        d.onclick=()=>{ P.plane=p.id; normalizeLoadout(); renderShop(); };
+        row2.appendChild(d);
       }
+      if(equipped){
+        const e2=document.createElement('button'); e2.className='btn btn-sm btn-equipped';
+        e2.textContent='In Service'; e2.disabled=true; row2.appendChild(e2);
+      }
+      col.appendChild(row2);
       row.appendChild(col);
       list.appendChild(row);
     }
@@ -3170,6 +3512,7 @@ function launch(){
   launch._warned=false;
 
   mode='flying';
+  armMatch();            // spend any armed card before the airframe is built
   S=newSortie();
   ammoSig='';                       // force the HUD ammo panel to rebuild
   $('hudAmmo').innerHTML='';
@@ -3219,6 +3562,7 @@ function finishSortie(survived){
     $('fBest').textContent=P.best;
     show('downScreen');
   }
+  disarmMatch();
   saveProfile();
   submitScore();          // push the new score to the shared Ace Board
 }
@@ -3471,6 +3815,7 @@ function endDiscovery(reason){
   P.sorties++;
   if(S.kills>P.best) P.best=S.kills;
   saveProfile();
+  disarmMatch();
   submitScore();          // push the new score to the shared Ace Board
   // put the tight combat world back for the hangar backdrop and next sortie
   arenaBound=ARENA; worldExtent=ARENA; rebuildWorld();
@@ -3974,9 +4319,19 @@ function hydrate(saved){
     sorties:    saved.sorties    ?? b.sorties,
     best:       saved.best       ?? b.best,
     rounds:     saved.rounds     ?? 0,
+    fleet:      Array.isArray(saved.fleet) ? saved.fleet.slice(0,20) : [],
+    flagship:   saved.flagship   ?? 0,
+    cards:      Object.assign({}, saved.cards||{}),
+    warWins:    saved.warWins    ?? 0,
+    warLosses:  saved.warLosses  ?? 0,
   };
   // pre-ammo saves: carry the single fitted gun over as the loadout and
   // issue a fair opening load for everything already paid for
+  // ownedPlanes used to be {id:true}; war needs a count per airframe
+  for(const k of Object.keys(p.ownedPlanes)){
+    if(p.ownedPlanes[k]===true) p.ownedPlanes[k]=1;
+    else if(typeof p.ownedPlanes[k]!=='number' || p.ownedPlanes[k]<1) p.ownedPlanes[k]=1;
+  }
   if(!p.loadout) p.loadout=[p.weapon];
   if(!saved.ammo){
     for(const id of Object.keys(p.ownedWeapons)){
@@ -4162,11 +4517,609 @@ async function loadBoard(){
   }
 }
 
+$('btnWarTitle').onclick      = ()=>openWar('titleScreen');
+$('btnWarHangarOpen').onclick = ()=>openWar('hangarScreen');
+$('btnCardsHangar').onclick   = ()=>{ cardReturn='hangarScreen'; renderCards(); show('cardScreen'); };
+$('btnWarBack').onclick       = ()=>show(warReturn);
+$('btnWarFleet').onclick      = ()=>{ renderFleet(); show('fleetScreen'); };
+$('btnWarCards').onclick      = ()=>{ cardReturn='warSetupScreen'; renderCards(); show('cardScreen'); };
+$('btnWarGo').onclick         = ()=>startWar();
+$('btnFleetBack').onclick     = ()=>{ renderWarSetup(); show('warSetupScreen'); };
+$('btnFleetWar').onclick      = ()=>{ renderWarSetup(); show('warSetupScreen'); };
+$('btnCardBack').onclick      = ()=>{
+  if(cardReturn==='warSetupScreen'){ renderWarSetup(); show('warSetupScreen'); }
+  else show(cardReturn);
+};
+$('btnCardClear').onclick     = ()=>{ armedCard=null; renderCards(); };
+$('btnWarAgain').onclick      = ()=>{ renderWarSetup(); show('warSetupScreen'); };
+$('btnWarHangar').onclick     = ()=>goHangar();
+document.querySelectorAll('[data-cf]').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('[data-cf]').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on'); cardFilter=t.dataset.cf; renderCards();
+  };
+});
 $('btnBoardTitle').onclick   = ()=>openBoard('titleScreen');
 $('btnBoardHangar').onclick  = ()=>openBoard('hangarScreen');
 $('btnBoardDown').onclick    = ()=>openBoard('downScreen');
 $('btnBoardRefresh').onclick = ()=>loadBoard();
 $('btnBoardBack').onclick    = ()=>show(boardReturn);
+
+/* ============================================================
+   CARD SYSTEM
+   120 cards: 20 archetypes x 6 rarities. Common is barely worth
+   the paper; Hyper is absurd on purpose.
+   ============================================================ */
+const RARITY = [
+  { id:'common', name:'Common', short:'C',     tone:'#8d979e', tier:'Worn' },
+  { id:'r',      name:'Rare',   short:'R',     tone:'#7d9478', tier:'Standard' },
+  { id:'sr',     name:'Super Rare', short:'SR',tone:'#5b8fb0', tier:'Refined' },
+  { id:'ssr',    name:'Ultra Rare', short:'SSR',tone:'#a07bc4', tier:'Master' },
+  { id:'ir',     name:'Insane Rare', short:'IR',tone:'#c2673f', tier:'Legendary' },
+  { id:'hyper',  name:'Hyper',  short:'HYP',   tone:'#d94f8a', tier:'Mythic' },
+];
+
+/* Each archetype: a name, a one-line flavour, and the six values it
+   takes as rarity climbs. fmt() turns a value into readable text. */
+const ARCHETYPES = [
+  { key:'dmg',      base:"Gunsmith's Touch", eff:'dmgMul',
+    vals:[1.05,1.12,1.25,1.50,2.00,4.00],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% weapon damage' },
+  { key:'rate',     base:'Hair Trigger', eff:'rateMul',
+    vals:[0.97,0.92,0.82,0.68,0.50,0.25],
+    fmt:v=>'+'+Math.round((1/v-1)*100)+'% rate of fire' },
+  { key:'hull',     base:'Plate Armour', eff:'hpMul',
+    vals:[1.05,1.12,1.25,1.50,2.00,3.50],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% hull integrity' },
+  { key:'fuel',     base:'Long-Range Tanks', eff:'fuelMul',
+    vals:[1.08,1.18,1.35,1.70,2.50,5.00],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% fuel' },
+  { key:'pay',      base:'War Profiteer', eff:'moneyMul',
+    vals:[1.05,1.15,1.30,1.60,2.20,4.00],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% pay' },
+  { key:'ammo',     base:'Full Magazines', eff:'ammoBonus',
+    vals:[0.10,0.25,0.50,1.00,2.00,5.00],
+    fmt:v=>'+'+Math.round(v*100)+'% ammunition issued' },
+  { key:'shield',   base:'Deflector Plate', eff:'shield',
+    vals:[15,35,70,140,300,800],
+    fmt:v=>'Absorbs the first '+v+' damage' },
+  { key:'regen',    base:'Field Repairs', eff:'regen',
+    vals:[0.5,1.2,2.5,5,10,30],
+    fmt:v=>'Repairs '+v+' hull per second' },
+  { key:'speed',    base:'Overboost', eff:'speedMul',
+    vals:[1.03,1.07,1.14,1.25,1.45,2.00],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% airspeed' },
+  { key:'turn',     base:'Clipped Wings', eff:'turnMul',
+    vals:[1.04,1.09,1.18,1.32,1.60,2.40],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% rate of turn' },
+  { key:'tough',    base:'Thick Skin', eff:'enemyDmgMul',
+    vals:[0.96,0.90,0.80,0.65,0.45,0.15],
+    fmt:v=>'-'+Math.round((1-v)*100)+'% damage taken' },
+  { key:'bspd',     base:'Hot Loads', eff:'bSpeedMul',
+    vals:[1.05,1.12,1.25,1.45,1.80,3.00],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% projectile speed' },
+  { key:'vamp',     base:'Salvage Rites', eff:'vampire',
+    vals:[1,3,7,15,32,90],
+    fmt:v=>'Repairs '+v+' hull per kill' },
+  { key:'pierce',   base:'Armour Piercing', eff:'pierceAdd',
+    vals:[0.10,0.20,0.40,0.70,1.00,1.00],
+    fmt:(v,i)=>Math.round(v*100)+'% of rounds punch through '+[1,1,2,2,4,10][i]+' targets' },
+  { key:'jam',      base:'Jamming Signal', eff:'enemySpeedMul',
+    vals:[0.97,0.93,0.86,0.75,0.60,0.30],
+    fmt:v=>'Enemies fly '+Math.round((1-v)*100)+'% slower' },
+  { key:'crit',     base:"Marksman's Eye", eff:'critChance',
+    vals:[0.05,0.10,0.18,0.30,0.50,0.90],
+    fmt:v=>Math.round(v*100)+'% chance of a x2.5 critical hit' },
+  { key:'wing',     base:'Squadron Morale', eff:'wingHpMul', war:true,
+    vals:[1.05,1.15,1.30,1.60,2.20,4.00],
+    fmt:v=>'War: +'+Math.round((v-1)*100)+'% wingman hull' },
+  { key:'intel',    base:'Signals Intercept', eff:'revealAt', war:true,
+    vals:[0.15,0.30,0.50,0.70,0.90,1.00],
+    fmt:v=>v>=1 ? 'War: enemy flagship marked from the start'
+                : 'War: flagship marked once '+Math.round((1-v)*100)+'% of the enemy fleet is down' },
+  { key:'revive',   base:'Guardian Angel', eff:'revive',
+    vals:[0.10,0.20,0.35,0.50,0.75,1.00],
+    fmt:(v,i)=>'Returns you to the fight at '+Math.round(v*100)+'% hull ('+[1,1,1,1,2,3][i]+'x)' },
+  { key:'ace',      base:'Ace of Aces', eff:'allMul',
+    vals:[1.02,1.05,1.10,1.18,1.30,1.60],
+    fmt:v=>'+'+Math.round((v-1)*100)+'% to damage, hull, speed, turn, fuel and pay' },
+];
+
+/* Build all 120 cards once at load. */
+const CARDS = [];
+for(const a of ARCHETYPES){
+  for(let i=0;i<6;i++){
+    CARDS.push({
+      id: a.key+'_'+RARITY[i].id,
+      name: RARITY[i].tier+' '+a.base,
+      rarity: i,
+      eff: a.eff,
+      val: a.vals[i],
+      tierIdx: i,
+      war: !!a.war,
+      text: a.fmt(a.vals[i], i),
+    });
+  }
+}
+function cardDef(id){ return CARDS.find(c=>c.id===id); }
+
+/* pierce / revive need a second number that does not scale smoothly */
+const PIERCE_N = [1,1,2,2,4,10];
+const REVIVE_N = [1,1,1,1,2,3];
+
+/* Rarity odds by war difficulty. Harder war, better pulls. */
+const CARD_ODDS = {
+  recruit:[70,20,8,1.5,0.4,0.1],
+  veteran:[50,28,15,5,1.6,0.4],
+  ace:    [32,30,23,11,3.2,0.8],
+  legend: [20,25,25,18,10,2],
+};
+
+function rollCard(diffId){
+  const w = CARD_ODDS[diffId] || CARD_ODDS.recruit;
+  const total = w.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total, tier = 0;
+  for(let i=0;i<w.length;i++){ r-=w[i]; if(r<=0){ tier=i; break; } }
+  const pool = CARDS.filter(c=>c.rarity===tier);
+  return pool[rndi(0,pool.length-1)];
+}
+
+function cardCount(id){ return (P.cards && P.cards[id]) || 0; }
+function cardTotal(){ let n=0; for(const k in (P.cards||{})) n+=P.cards[k]; return n; }
+function giveCard(id){ P.cards=P.cards||{}; P.cards[id]=(P.cards[id]||0)+1; }
+function consumeCard(id){
+  if(!P.cards || !P.cards[id]) return false;
+  P.cards[id]--; if(P.cards[id]<=0) delete P.cards[id];
+  return true;
+}
+
+/* ---- the card currently armed for the next match ---- */
+let armedCard = null;      // card id, or null
+let activeEff = null;      // resolved effects for the running match
+
+function blankEff(){
+  return { dmgMul:1, rateMul:1, hpMul:1, fuelMul:1, moneyMul:1, ammoBonus:0,
+           shield:0, regen:0, speedMul:1, turnMul:1, enemyDmgMul:1, bSpeedMul:1,
+           vampire:0, pierceAdd:0, pierceN:0, enemySpeedMul:1, critChance:0,
+           wingHpMul:1, revealAt:0, revive:0, reviveN:0, cardName:null };
+}
+
+/* Turn the armed card into a set of numbers the match can read. */
+function resolveEff(){
+  const e = blankEff();
+  if(!armedCard) return e;
+  const c = cardDef(armedCard);
+  if(!c) return e;
+  e.cardName = c.name;
+  e.cardRarity = c.rarity;
+  if(c.eff==='allMul'){
+    e.dmgMul=c.val; e.hpMul=c.val; e.speedMul=c.val;
+    e.turnMul=c.val; e.fuelMul=c.val; e.moneyMul=c.val;
+  } else if(c.eff==='pierceAdd'){
+    e.pierceAdd=c.val; e.pierceN=PIERCE_N[c.rarity];
+  } else if(c.eff==='revive'){
+    e.revive=c.val; e.reviveN=REVIVE_N[c.rarity];
+  } else {
+    e[c.eff]=c.val;
+  }
+  return e;
+}
+
+/* Effects read by the rest of the game. Outside a match these are all
+   neutral, so nothing changes for sortie, discovery or the lesson. */
+function EF(){ return activeEff || blankEff(); }
+
+/* Spend the armed card and lock its effects in for this match. */
+function armMatch(){
+  activeEff = blankEff();
+  if(armedCard && consumeCard(armedCard)){
+    activeEff = resolveEff();
+    const c = cardDef(armedCard);
+    toast('Card played · '+c.name);
+    armedCard = null;
+    saveProfile();
+  } else {
+    armedCard = null;
+  }
+}
+function disarmMatch(){ activeEff = null; }
+
+/* ============================================================
+   FLEET
+   ============================================================ */
+const FLEET_MAX = 20;
+
+function planeCount(id){
+  const v = P.ownedPlanes[id];
+  if(v===true) return 1;            // old saves stored a plain true
+  return (typeof v==='number' && v>0) ? v : 0;
+}
+function addPlane(id,n){
+  P.ownedPlanes[id] = planeCount(id) + (n||1);
+}
+/* how many of a plane are not already sitting in the fleet */
+function planeFree(id){
+  const used = (P.fleet||[]).filter(x=>x===id).length;
+  return planeCount(id) - used;
+}
+function fleetSize(){ return (P.fleet||[]).length; }
+
+function normalizeFleet(){
+  if(!Array.isArray(P.fleet)) P.fleet=[];
+  // drop anything no longer owned, and trim duplicates past what is owned
+  const seen={};
+  P.fleet = P.fleet.filter(id=>{
+    if(!PLANES.some(p=>p.id===id)) return false;
+    seen[id]=(seen[id]||0)+1;
+    return seen[id] <= planeCount(id);
+  }).slice(0,FLEET_MAX);
+  if(P.flagship >= P.fleet.length) P.flagship = 0;
+  if(typeof P.flagship!=='number' || P.flagship<0) P.flagship = 0;
+}
+
+/* ============================================================
+   WAR
+   ============================================================ */
+const DIFFS = [
+  { id:'recruit', name:'Recruit', fleet:5,  mul:1, scale:0.80,
+    desc:'A probing raid. Five aircraft, green pilots, nothing clever.' },
+  { id:'veteran', name:'Veteran', fleet:10, mul:2, scale:1.00,
+    desc:'A real squadron. Ten aircraft that know what they are doing.' },
+  { id:'ace',     name:'Ace',     fleet:15, mul:3, scale:1.30,
+    desc:'Fifteen hand-picked airframes. They will hunt your wingmen first.' },
+  { id:'legend',  name:'Legend',  fleet:20, mul:5, scale:1.75,
+    desc:'Twenty aircraft and nowhere to hide. Bring everything you own.' },
+];
+function diffDef(id){ return DIFFS.find(d=>d.id===id) || DIFFS[0]; }
+
+let warDiff = 'recruit';
+
+/* Which enemy types a difficulty draws from, worst to best. */
+function warEnemyTypes(d){
+  if(d.id==='recruit') return ['scout','scout','scout','fighter'];
+  if(d.id==='veteran') return ['scout','fighter','fighter','heavy'];
+  if(d.id==='ace')     return ['fighter','fighter','heavy','ace'];
+  return ['fighter','heavy','ace','ace'];
+}
+
+function canWar(){
+  normalizeFleet();
+  return fleetSize()>0;
+}
+
+function startWar(){
+  normalizeFleet();
+  if(fleetSize()===0){ toast('Build a fleet first'); return; }
+
+  const d = diffDef(warDiff);
+  armMatch();                       // spend the armed card
+  const ef = EF();
+
+  const flagId = P.fleet[P.flagship] || P.fleet[0];
+  const flagDef = PLANES.find(p=>p.id===flagId) || PLANES[0];
+
+  mode='flying';
+  S=newSortie();
+  S.war = { diff:d.id, mul:d.mul, flagDef, enemyTotal:d.fleet,
+            revealed: ef.revealAt>=1, allyStart:0, allyLost:0, won:false };
+
+  /* the player flies the flagship */
+  S.plane.hp = maxHP();
+  S.plane.fuel = maxFuel();
+  S.shieldHp = ef.shield;
+  S.reviveLeft = ef.reviveN;
+
+  /* ---- wingmen: every fleet plane except the flagship ---- */
+  S.allies = [];
+  P.fleet.forEach((id,i)=>{
+    if(i===P.flagship) return;
+    const pd = PLANES.find(p=>p.id===id); if(!pd) return;
+    const ang = rnd(0,TAU), r = rnd(120,320);
+    const hp = pd.hp * ef.wingHpMul;
+    S.allies.push({
+      pid:id, pdef:pd, x:Math.cos(ang)*r, y:Math.sin(ang)*r,
+      a:-Math.PI/2, hp, maxhp:hp, cool:rnd(0,500), thr:1,
+      hitFlash:0, smoke:0, dead:false, bank:0, seed:rnd(0,TAU),
+    });
+  });
+  S.war.allyStart = S.allies.length;
+
+  /* ---- enemy fleet, one of them the hidden flagship ---- */
+  const types = warEnemyTypes(d);
+  const flagIdx = rndi(0, d.fleet-1);
+  for(let i=0;i<d.fleet;i++){
+    const t = types[rndi(0,types.length-1)];
+    const def = ENEMY[t];
+    const ang = rnd(0,TAU), r = rnd(900,1500);
+    const isFlag = (i===flagIdx);
+    const hp = def.hp * d.scale * (isFlag ? 3.2 : 1);
+    S.enemies.push({
+      type:t, x:Math.cos(ang)*r, y:Math.sin(ang)*r,
+      a:rnd(0,TAU), hp, maxhp:hp, cool:rnd(0,def.rate),
+      hitFlash:0, smoke:0, wob:rnd(0,TAU), evade:0, dead:false,
+      seed:rnd(0,TAU), burnT:0, burnDps:0, burnEm:0,
+      warFlag:isFlag, warUnit:true,
+    });
+  }
+
+  S.cam.x=S.plane.x; S.cam.y=S.plane.y;
+  mouse.x=W/2; mouse.y=H/2-120;
+  ammoSig=''; $('hudAmmo').innerHTML='';
+  show(null);
+  hud.classList.add('on');
+  cv.style.cursor='none';
+  toast('WAR · '+d.name+' · '+d.fleet+' hostiles · find their flagship');
+  last=performance.now();
+}
+
+/* ---- wingman AI ---- */
+function updateAllies(dt){
+  if(!S.allies) return;
+  const ef=EF();
+  for(const al of S.allies){
+    if(al.dead) continue;
+    al.hitFlash=Math.max(0,al.hitFlash-dt);
+
+    /* pick the nearest living enemy */
+    let tgt=null, best=1e9;
+    for(const e of S.enemies){
+      if(e.dead) continue;
+      const dd=Math.hypot(e.x-al.x,e.y-al.y);
+      if(dd<best){ best=dd; tgt=e; }
+    }
+
+    let want;
+    if(tgt){
+      want=Math.atan2(tgt.y-al.y, tgt.x-al.x);
+      if(best<150) want += 0.9;             // don't ram
+    } else {
+      /* nothing to shoot — form up on the player */
+      want=Math.atan2(S.plane.y-al.y, S.plane.x-al.x);
+    }
+    const rate=al.pdef.turn*(dt/16.67);
+    const turn=clamp(angDiff(al.a,want),-rate,rate);
+    al.a+=turn;
+    al.bank=lerp(al.bank||0, turn/((dt/16.67)||1), 0.18*(dt/16.67));
+
+    const sp=al.pdef.speed*0.92*(dt/16.67);
+    al.x+=Math.cos(al.a)*sp; al.y+=Math.sin(al.a)*sp;
+    al.x=clamp(al.x,-arenaBound-300,arenaBound+300);
+    al.y=clamp(al.y,-arenaBound-300,arenaBound+300);
+
+    /* shooting */
+    al.cool-=dt;
+    if(tgt && al.cool<=0 && best<480){
+      const toT=Math.atan2(tgt.y-al.y,tgt.x-al.x);
+      if(Math.abs(angDiff(al.a,toT))<0.30){
+        al.cool=360*rnd(.85,1.25);
+        const bs=7.4;
+        const t=best/bs;
+        const px=tgt.x+Math.cos(tgt.a)*(ENEMY[tgt.type].speed)*t*0.6;
+        const py=tgt.y+Math.sin(tgt.a)*(ENEMY[tgt.type].speed)*t*0.6;
+        const ba=Math.atan2(py-al.y,px-al.x)+rnd(-.05,.05);
+        S.bullets.push({
+          x:al.x+Math.cos(al.a)*al.pdef.len, y:al.y+Math.sin(al.a)*al.pdef.len,
+          vx:Math.cos(ba)*bs, vy:Math.sin(ba)*bs,
+          dmg:9, life:1100, r:1.7, tracer:'#cfe0a8', spin:0, ally:true,
+        });
+      }
+    }
+
+    if(al.hp<al.maxhp*0.35){
+      al.smoke-=dt;
+      if(al.smoke<=0){ al.smoke=140;
+        S.smoke.push({x:al.x-Math.cos(al.a)*10,y:al.y-Math.sin(al.a)*10,
+                      r:rnd(4,7),life:800,max:800,dark:.45});
+      }
+    }
+  }
+  /* bury the dead */
+  for(const al of S.allies){
+    if(!al.dead && al.hp<=0){
+      al.dead=true; S.war.allyLost++;
+      explode(al.x,al.y,1.1);
+      toast('Wingman down · '+(S.war.allyStart-S.war.allyLost)+' still flying');
+    }
+  }
+  S.allies=S.allies.filter(a=>!a.dead);
+}
+
+function damageAlly(al,dmg){
+  al.hp-=dmg; al.hitFlash=140;
+}
+
+/* ---- war end ---- */
+function endWar(won){
+  if(!S || !S.war || S.war.ended) return;   // never pay out a war twice
+  S.war.ended=true;
+  const d=diffDef(S.war.diff), ef=EF();
+  mode='debrief';
+  hud.classList.remove('on'); cv.style.cursor='default';
+
+  let pay=0, card=null;
+  if(won){
+    pay = Math.round((600 + S.earned) * d.mul * ef.moneyMul);
+    P.money += pay;
+    P.warWins = (P.warWins||0)+1;
+    card = rollCard(d.id);
+    giveCard(card.id);
+  } else {
+    pay = Math.round(S.earned * 0.4 * ef.moneyMul);
+    P.money += pay;
+    P.warLosses = (P.warLosses||0)+1;
+  }
+  P.sorties++;
+  if(S.kills>P.best) P.best=S.kills;
+
+  $('warResEyebrow').textContent = d.name+' War';
+  $('warResTitle').textContent = won ? 'Enemy Flagship Destroyed' : 'Flagship Lost';
+  $('warResText').textContent = won
+    ? 'Their command aircraft went down and the rest of the formation broke. The field is yours.'
+    : 'Your command aircraft was shot out of the sky. What was left of the fleet withdrew.';
+  $('wKills').textContent = S.kills;
+  $('wEarned').textContent = money(pay);
+  $('wLost').textContent = S.war.allyLost+'/'+S.war.allyStart;
+  $('wMul').textContent = 'x'+d.mul;
+
+  const slot=$('warCardSlot');
+  if(card){
+    slot.innerHTML = '<div class="eyebrow" style="margin-top:4px">Salvaged from the wreck</div>'
+      + cardHTML(card, 1, false);
+  } else {
+    slot.innerHTML = '<div class="board-empty" style="padding:18px 10px">No card recovered — win the war to claim one.</div>';
+  }
+
+  disarmMatch();
+  saveProfile();
+  submitScore();
+  show('warResultScreen');
+}
+
+/* ============================================================
+   WAR / FLEET / CARD SCREENS
+   ============================================================ */
+let warReturn = 'hangarScreen';
+let cardReturn = 'hangarScreen';
+
+function cardHTML(c, count, pickable){
+  const R=RARITY[c.rarity];
+  return '<div class="card-row r-'+R.id+'" data-card="'+c.id+'">'
+    + '<div class="card-pip" style="background:'+R.tone+'">'+R.short+'</div>'
+    + '<div class="card-mid">'
+    +   '<h4>'+esc(c.name)+'</h4>'
+    +   '<p>'+esc(c.text)+'</p>'
+    +   '<div class="card-tag">'+R.name+(c.war?' · war only':'')+'</div>'
+    + '</div>'
+    + '<div class="card-right">'
+    +   (count>1 ? '<div class="card-ct">x'+count+'</div>' : '')
+    +   (pickable ? '<button class="btn btn-sm card-arm">Arm</button>' : '')
+    + '</div>'
+    + '</div>';
+}
+
+/* ---------- fleet builder ---------- */
+function renderFleet(){
+  normalizeFleet();
+  $('fleetCount').textContent = fleetSize()+'/'+FLEET_MAX;
+
+  /* owned planes you can still add */
+  const pool=$('fleetPool'); pool.innerHTML='';
+  let anyFree=false;
+  for(const p of PLANES){
+    const free=planeFree(p.id);
+    if(planeCount(p.id)<=0) continue;
+    if(free>0) anyFree=true;
+    const row=document.createElement('div');
+    row.className='fleet-row'+(free<=0?' spent':'');
+    row.innerHTML='<div class="fleet-nm">'+esc(p.name)+'</div>'
+      + '<div class="fleet-st">HULL '+p.hp+' · SPD '+p.speed.toFixed(1)+' · '+free+' spare</div>';
+    const b=document.createElement('button');
+    b.className='btn btn-sm'+(free>0&&fleetSize()<FLEET_MAX?' btn-go':'');
+    b.textContent='Add';
+    b.disabled = free<=0 || fleetSize()>=FLEET_MAX;
+    b.onclick=()=>{ P.fleet.push(p.id); saveProfile(); renderFleet(); };
+    row.appendChild(b);
+    pool.appendChild(row);
+  }
+  if(!pool.children.length){
+    pool.innerHTML='<div class="board-empty">You own no aircraft yet.<br>Buy some in the hangar first.</div>';
+  }
+
+  /* the fleet itself */
+  const list=$('fleetList'); list.innerHTML='';
+  if(!fleetSize()){
+    list.innerHTML='<div class="board-empty">No aircraft assigned.<br>Add at least one to go to war.</div>';
+  }
+  P.fleet.forEach((id,i)=>{
+    const p=PLANES.find(x=>x.id===id); if(!p) return;
+    const isFlag=(i===P.flagship);
+    const row=document.createElement('div');
+    row.className='fleet-row'+(isFlag?' flag':'');
+    row.innerHTML='<div class="fleet-nm">'+(isFlag?'<span class="flagmark">FLAG</span>':'')+esc(p.name)+'</div>'
+      + '<div class="fleet-st">HULL '+p.hp+' · SPD '+p.speed.toFixed(1)+' · TURN '+(p.turn*1000).toFixed(0)+'</div>';
+    const wrap=document.createElement('div'); wrap.className='fleet-btns';
+    if(!isFlag){
+      const f=document.createElement('button');
+      f.className='btn btn-sm'; f.textContent='Make Flag';
+      f.onclick=()=>{ P.flagship=i; saveProfile(); renderFleet(); };
+      wrap.appendChild(f);
+    }
+    const r=document.createElement('button');
+    r.className='btn btn-sm'; r.textContent='Remove';
+    r.onclick=()=>{
+      P.fleet.splice(i,1);
+      if(P.flagship>=P.fleet.length) P.flagship=Math.max(0,P.fleet.length-1);
+      else if(i<P.flagship) P.flagship--;
+      saveProfile(); renderFleet();
+    };
+    wrap.appendChild(r);
+    row.appendChild(wrap);
+    list.appendChild(row);
+  });
+
+  const fd = fleetSize() ? PLANES.find(x=>x.id===P.fleet[P.flagship]) : null;
+  $('fleetFlagName').textContent = fd ? fd.name : '—';
+}
+
+/* ---------- card inventory ---------- */
+let cardFilter='all';
+function renderCards(){
+  const list=$('cardList'); list.innerHTML='';
+  const owned=Object.keys(P.cards||{}).filter(id=>P.cards[id]>0);
+
+  $('cardTotal').textContent=cardTotal();
+  $('cardArmed').textContent = armedCard ? cardDef(armedCard).name : 'None';
+
+  if(!owned.length){
+    list.innerHTML='<div class="board-empty">No cards yet.<br>Win a war to salvage one.</div>';
+    return;
+  }
+  const defs=owned.map(cardDef).filter(Boolean)
+    .filter(c=>cardFilter==='all'||RARITY[c.rarity].id===cardFilter)
+    .sort((a,b)=>b.rarity-a.rarity || a.name.localeCompare(b.name));
+
+  if(!defs.length){
+    list.innerHTML='<div class="board-empty">Nothing of that rarity yet.</div>';
+    return;
+  }
+  list.innerHTML = defs.map(c=>cardHTML(c, P.cards[c.id], true)).join('');
+  list.querySelectorAll('.card-row').forEach(row=>{
+    const id=row.dataset.card;
+    const btn=row.querySelector('.card-arm');
+    if(!btn) return;
+    if(armedCard===id){ btn.textContent='Armed'; btn.classList.add('btn-equipped'); }
+    btn.onclick=()=>{
+      armedCard = (armedCard===id) ? null : id;
+      renderCards();
+    };
+  });
+}
+
+/* ---------- war setup ---------- */
+function renderWarSetup(){
+  normalizeFleet();
+  const box=$('diffList'); box.innerHTML='';
+  for(const d of DIFFS){
+    const row=document.createElement('div');
+    row.className='diff-row'+(warDiff===d.id?' on':'');
+    row.innerHTML='<div class="diff-nm">'+d.name+'</div>'
+      + '<div class="diff-st">'+esc(d.desc)+'</div>'
+      + '<div class="diff-mul">'+d.fleet+' hostiles · x'+d.mul+' pay</div>';
+    row.onclick=()=>{ warDiff=d.id; renderWarSetup(); };
+    box.appendChild(row);
+  }
+  const fd = fleetSize() ? PLANES.find(x=>x.id===P.fleet[P.flagship]) : null;
+  $('warFleetSize').textContent = fleetSize();
+  $('warFlagName').textContent  = fd ? fd.name : 'none assigned';
+  $('warCardName').textContent  = armedCard ? cardDef(armedCard).name : 'none armed';
+  $('btnWarGo').disabled = fleetSize()===0;
+}
+
+function openWar(from){
+  warReturn = from || 'hangarScreen';
+  renderWarSetup();
+  show('warSetupScreen');
+}
 
 /* ---- auth screen ---- */
 let authMode='login';
@@ -4249,15 +5202,16 @@ $('btnLaunch').onclick=launch;
 $('btnToHangar').onclick=goHangar;
 $('btnResume').onclick=togglePause;
 $('btnAbort').onclick=()=>{
+  if(S && S.war){ mode='flying'; show(null); endWar(false); return; }
   if(S && S.learn){ mode='flying'; show(null); endLearn(); return; }
   if(S && S.discovery){ mode='flying'; show(null); endDiscovery('landed'); return; }
   S.plane.dead=true; S.endT=0; mode='flying'; show(null); finishSortie(false);
 };
 $('btnRetry').onclick=()=>{ goHangar(); };
 $('btnNewTour').onclick=()=>{ P=newProfile(); saveProfile(); rebuildWorld(); goHangar(); };
-document.querySelectorAll('.tab').forEach(t=>{
+document.querySelectorAll('.tab[data-tab]').forEach(t=>{
   t.onclick=()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.remove('on'));
     t.classList.add('on'); shopTab=t.dataset.tab; renderShop();
   };
 });
