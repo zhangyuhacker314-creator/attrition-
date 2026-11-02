@@ -31,6 +31,15 @@ const PORT = process.env.PORT || 3000;
    mount path (e.g. /var/data) so scores survive redeploys. */
 const DATA_DIR   = process.env.DATA_DIR || __dirname;
 const SCORE_FILE = path.join(DATA_DIR, 'scores.json');
+const EVENT_FILE = path.join(DATA_DIR, 'events.json');
+
+/* The phrase that unlocks the admin panel. Anyone who knows it is an
+   admin — it is not tied to any account. You can change it here, or set
+   an ADMIN_KEY environment variable on Render to override it.
+   NOTE: the game page has to know this too, so a determined player can
+   find it by reading the page source. It keeps casual players out, not
+   someone who goes looking. */
+const ADMIN_KEY = process.env.ADMIN_KEY || 'IM BACK';
 
 /* How many pilots the leaderboard shows at most. */
 const TOP_N = 50;
@@ -88,11 +97,43 @@ function saveScores() {
   });
 }
 
+/* ---- events live in their own file, same pattern as scores ---- */
+let events = {};
+
+function loadEvents(){
+  try{
+    const parsed = JSON.parse(fs.readFileSync(EVENT_FILE,'utf8'));
+    if(parsed && typeof parsed==='object'){
+      events = parsed;
+      console.log(`Loaded ${Object.keys(events).length} event(s).`);
+      return;
+    }
+  }catch(err){
+    if(err.code !== 'ENOENT') console.warn('Could not read events.json:', err.message);
+  }
+  events = {};
+}
+
+let evTimer = null;
+function scheduleEventSave(){
+  if(evTimer) return;
+  evTimer = setTimeout(()=>{ evTimer=null; saveEvents(); }, 500);
+}
+function saveEvents(){
+  const tmp = EVENT_FILE + '.tmp';
+  fs.writeFile(tmp, JSON.stringify(events,null,2), 'utf8', err=>{
+    if(err){ console.error('Event save failed:', err.message); return; }
+    fs.rename(tmp, EVENT_FILE, e2=>{ if(e2) console.error('Event rename failed:', e2.message); });
+  });
+}
+
 loadScores();
+loadEvents();
 
 /* Last-chance save if Render shuts the server down. */
 function shutdown() {
   try { fs.writeFileSync(SCORE_FILE, JSON.stringify(scores, null, 2), 'utf8'); } catch (e) {}
+  try { fs.writeFileSync(EVENT_FILE, JSON.stringify(events, null, 2), 'utf8'); } catch (e) {}
   process.exit(0);
 }
 process.on('SIGTERM', shutdown);
@@ -258,6 +299,139 @@ app.get('/api/leaderboard', (req, res) => {
   }
 
   res.json({ ok: true, total: board.length, top, you });
+});
+
+/* ============================================================
+   EVENTS
+   An admin sets a target ("reach 500 career kills") and a reward.
+   The first N pilots to hit it get paid, then the event closes.
+   ============================================================ */
+
+/* The stats an event can be built on. Each one must match a number the
+   game actually tracks, or nobody could ever qualify. */
+const EVENT_STATS = {
+  totalKills: 'Career kills',
+  best:       'Best single sortie',
+  sorties:    'Sorties flown',
+  wave:       'Furthest sortie reached',
+  warWins:    'Wars won',
+  legendWins: 'Legend wars won',
+};
+const REWARD_TYPES = ['money','card','randomCard'];
+
+function eventIsOpen(ev){
+  if(ev.expires && Date.now() > ev.expires) return false;
+  if((ev.claims||[]).length >= ev.limit) return false;
+  return true;
+}
+function publicEvent(ev){
+  return {
+    id: ev.id, title: ev.title, desc: ev.desc,
+    stat: ev.stat, statLabel: EVENT_STATS[ev.stat] || ev.stat,
+    target: ev.target, reward: ev.reward, limit: ev.limit,
+    taken: (ev.claims||[]).length,
+    claimedBy: (ev.claims||[]).map(c=>c.user),
+    expires: ev.expires || null,
+    open: eventIsOpen(ev),
+  };
+}
+
+/* ---- what everyone sees on the notice board ---- */
+app.get('/api/events', (req, res) => {
+  const all = Object.values(events)
+    .sort((a,b)=>(b.created||0)-(a.created||0))
+    .map(publicEvent);
+  const me = cleanName(req.query.me);
+  res.json({
+    ok:true,
+    events: all.filter(e=>e.open),
+    mine: me ? all.filter(e=>e.claimedBy.some(u=>u.toLowerCase()===me.toLowerCase())) : [],
+  });
+});
+
+/* ---- admin: every event, open or closed ---- */
+app.post('/api/admin/list', rateLimit, (req, res) => {
+  if((req.body||{}).key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+  res.json({ ok:true, events: Object.values(events)
+    .sort((a,b)=>(b.created||0)-(a.created||0)).map(publicEvent) });
+});
+
+/* ---- admin: create one ---- */
+app.post('/api/admin/create', rateLimit, (req, res) => {
+  const b = req.body || {};
+  if(b.key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+
+  const title = typeof b.title==='string' ? b.title.trim().slice(0,60) : '';
+  const desc  = typeof b.desc ==='string' ? b.desc.trim().slice(0,160) : '';
+  if(title.length < 2) return res.status(400).json({ error:'Give the event a title.' });
+  if(!EVENT_STATS[b.stat]) return res.status(400).json({ error:'Unknown condition.' });
+
+  const target = Math.max(1, Math.min(10000000, Math.floor(Number(b.target)||0)));
+  const limit  = Math.max(1, Math.min(1000, Math.floor(Number(b.limit)||1)));
+  if(!target) return res.status(400).json({ error:'Target must be at least 1.' });
+
+  const r = b.reward || {};
+  if(!REWARD_TYPES.includes(r.type)) return res.status(400).json({ error:'Unknown reward type.' });
+  const reward = { type: r.type };
+  if(r.type==='money'){
+    reward.amount = Math.max(1, Math.min(10000000, Math.floor(Number(r.amount)||0)));
+  } else if(r.type==='card'){
+    if(typeof r.cardId!=='string' || !/^[a-z]+_[a-z]+$/.test(r.cardId))
+      return res.status(400).json({ error:'Bad card id.' });
+    reward.cardId = r.cardId;
+  } else {
+    reward.rarity = Math.max(0, Math.min(5, Math.floor(Number(r.rarity)||0)));
+  }
+
+  let expires = null;
+  if(b.expires){
+    const t = Number(b.expires);
+    if(Number.isFinite(t) && t > Date.now()) expires = Math.floor(t);
+  }
+
+  const id = 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
+  events[id] = { id, title, desc, stat:b.stat, target, reward, limit,
+                 claims:[], expires, created: Date.now() };
+  scheduleEventSave();
+  res.json({ ok:true, event: publicEvent(events[id]) });
+});
+
+/* ---- admin: delete one ---- */
+app.post('/api/admin/delete', rateLimit, (req, res) => {
+  const b = req.body || {};
+  if(b.key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+  if(!events[b.id]) return res.status(404).json({ error:'No such event.' });
+  delete events[b.id];
+  scheduleEventSave();
+  res.json({ ok:true });
+});
+
+/* ---- a pilot claims a reward ----
+   The game sends its own numbers, so a determined player could lie about
+   them. That is the same trade-off the leaderboard already makes. The
+   server still enforces the things that actually matter: the target, the
+   number of spots left, the expiry, and one claim per pilot. */
+app.post('/api/claim', rateLimit, (req, res) => {
+  const b = req.body || {};
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+
+  const ev = events[b.id];
+  if(!ev) return res.status(404).json({ error:'No such event.' });
+  if(ev.expires && Date.now() > ev.expires) return res.json({ ok:false, reason:'expired' });
+  if((ev.claims||[]).length >= ev.limit)     return res.json({ ok:false, reason:'full' });
+
+  const key = name.toLowerCase();
+  if(ev.claims.some(c=>c.user.toLowerCase()===key))
+    return res.json({ ok:false, reason:'already' });
+
+  const have = cleanNumber(b.value, 10000000);
+  if(have < ev.target) return res.json({ ok:false, reason:'short', need: ev.target, have });
+
+  ev.claims.push({ user:name, at:Date.now(), value:have });
+  scheduleEventSave();
+  res.json({ ok:true, reward: ev.reward, title: ev.title,
+             place: ev.claims.length, limit: ev.limit });
 });
 
 /* A tiny "are you awake?" endpoint. The game pings this first so it can
