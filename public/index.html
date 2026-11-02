@@ -618,9 +618,10 @@ table.board tr.you td.nm::after{
       </div>
     </div>
     <p class="sub" style="margin-top:10px">
-      Assign up to twenty of your aircraft. You fly the one marked
-      <b>FLAG</b> — the rest fly as wingmen under their own steam. If your
-      flagship goes down, the war is lost.
+      Assign up to twenty of your aircraft, but no more than <b>five of any
+      one type</b> — a fleet of twenty identical airframes is not a fleet.
+      You fly the one marked <b>FLAG</b>; the rest fly as wingmen under their
+      own steam. If your flagship goes down, the war is lost.
     </p>
     <div class="col2">
       <div>
@@ -4728,6 +4729,16 @@ function disarmMatch(){ activeEff = null; }
    FLEET
    ============================================================ */
 const FLEET_MAX = 20;
+/* ---- war balance knobs ----
+   WAR_TYPE_MAX : how many of the SAME airframe may fly in one fleet
+   WAR_HARD     : flat multiplier on enemy toughness in every war
+   WAR_PAY      : fraction of the old payout a war now gives            */
+const WAR_TYPE_MAX = 5;
+const WAR_HARD     = 5;
+const WAR_PAY      = 0.25;
+
+/* the most of one type you can actually field, given what you own */
+function typeCap(id){ return Math.min(planeCount(id), WAR_TYPE_MAX); }
 
 function planeCount(id){
   const v = P.ownedPlanes[id];
@@ -4740,7 +4751,7 @@ function addPlane(id,n){
 /* how many of a plane are not already sitting in the fleet */
 function planeFree(id){
   const used = (P.fleet||[]).filter(x=>x===id).length;
-  return planeCount(id) - used;
+  return typeCap(id) - used;          // never more than WAR_TYPE_MAX of a kind
 }
 function fleetSize(){ return (P.fleet||[]).length; }
 
@@ -4751,7 +4762,7 @@ function normalizeFleet(){
   P.fleet = P.fleet.filter(id=>{
     if(!PLANES.some(p=>p.id===id)) return false;
     seen[id]=(seen[id]||0)+1;
-    return seen[id] <= planeCount(id);
+    return seen[id] <= typeCap(id);   // drops any 6th of a type from an old save
   }).slice(0,FLEET_MAX);
   if(P.flagship >= P.fleet.length) P.flagship = 0;
   if(typeof P.flagship!=='number' || P.flagship<0) P.flagship = 0;
@@ -4832,7 +4843,7 @@ function startWar(){
     const def = ENEMY[t];
     const ang = rnd(0,TAU), r = rnd(900,1500);
     const isFlag = (i===flagIdx);
-    const hp = def.hp * d.scale * (isFlag ? 3.2 : 1);
+    const hp = def.hp * d.scale * WAR_HARD * (isFlag ? 3.2 : 1);
     S.enemies.push({
       type:t, x:Math.cos(ang)*r, y:Math.sin(ang)*r,
       a:rnd(0,TAU), hp, maxhp:hp, cool:rnd(0,def.rate),
@@ -4938,13 +4949,13 @@ function endWar(won){
 
   let pay=0, card=null;
   if(won){
-    pay = Math.round((600 + S.earned) * d.mul * ef.moneyMul);
+    pay = Math.round((600 + S.earned) * d.mul * ef.moneyMul * WAR_PAY);
     P.money += pay;
     P.warWins = (P.warWins||0)+1;
     card = rollCard(d.id);
     giveCard(card.id);
   } else {
-    pay = Math.round(S.earned * 0.4 * ef.moneyMul);
+    pay = Math.round(S.earned * 0.4 * ef.moneyMul * WAR_PAY);
     P.money += pay;
     P.warLosses = (P.warLosses||0)+1;
   }
@@ -5011,8 +5022,14 @@ function renderFleet(){
     if(free>0) anyFree=true;
     const row=document.createElement('div');
     row.className='fleet-row'+(free<=0?' spent':'');
+    const inFleet=(P.fleet||[]).filter(x=>x===p.id).length;
+    const capped = inFleet>=WAR_TYPE_MAX;
     row.innerHTML='<div class="fleet-nm">'+esc(p.name)+'</div>'
-      + '<div class="fleet-st">HULL '+p.hp+' · SPD '+p.speed.toFixed(1)+' · '+free+' spare</div>';
+      + '<div class="fleet-st">HULL '+p.hp+' · SPD '+p.speed.toFixed(1)
+      + ' · own '+planeCount(p.id)
+      + ' · in fleet '+inFleet+'/'+WAR_TYPE_MAX
+      + (capped?' · <span style="color:var(--rust)">LIMIT</span>':' · '+free+' spare')
+      + '</div>';
     const b=document.createElement('button');
     b.className='btn btn-sm'+(free>0&&fleetSize()<FLEET_MAX?' btn-go':'');
     b.textContent='Add';
