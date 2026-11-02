@@ -293,6 +293,70 @@ body{
 .userbadge a{color:var(--paper-dim);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .userbadge a:hover{color:var(--amber)}
 
+/* ---------- notice board + admin ---------- */
+#noticeBox{margin-top:20px;text-align:left}
+.notice-head{
+  font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:9px;
+  padding-bottom:7px;border-bottom:1px solid var(--line-soft);
+}
+.notice-wait{
+  font-family:'IBM Plex Mono',monospace;font-size:.68rem;
+  letter-spacing:.1em;color:var(--paper-dark);padding:8px 0;
+}
+.notice{padding:11px 0;border-bottom:1px solid var(--line-soft)}
+.notice:last-child{border-bottom:none}
+.notice.claimed{opacity:.55}
+.notice-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.notice-top b{font-size:.98rem;letter-spacing:.03em;color:var(--paper)}
+.notice-spots{
+  font-family:'IBM Plex Mono',monospace;font-size:.58rem;
+  letter-spacing:.12em;color:var(--paper-dark);white-space:nowrap;
+}
+.notice-desc{color:var(--paper-dim);font-size:.82rem;margin-top:3px;line-height:1.35}
+.notice-cond{
+  font-family:'IBM Plex Mono',monospace;font-size:.62rem;
+  letter-spacing:.1em;color:var(--paper-dim);margin-top:6px;
+}
+.notice-bar{height:3px;background:var(--line);margin-top:5px;overflow:hidden}
+.notice-bar i{display:block;height:100%;background:var(--amber);transition:width .3s}
+.notice-reward{
+  font-family:'IBM Plex Mono',monospace;font-size:.6rem;
+  letter-spacing:.1em;color:var(--sage);margin-top:6px;
+}
+.notice-reward .got{color:var(--amber)}
+
+#adminScreen .panel{max-width:760px}
+.ev-form{display:grid;grid-template-columns:1fr 1fr;gap:11px 16px;margin-top:12px}
+@media (max-width:640px){.ev-form{grid-template-columns:1fr}}
+.ev-form label{
+  display:flex;flex-direction:column;gap:5px;
+  font-family:'IBM Plex Mono',monospace;font-size:.58rem;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--paper-dark);
+}
+.ev-form input,.ev-form select{
+  background:var(--ink);border:1px solid var(--line);color:var(--paper);
+  font-family:'Barlow Condensed',sans-serif;font-size:.95rem;
+  letter-spacing:.03em;padding:8px 10px;outline:none;
+}
+.ev-form input:focus,.ev-form select:focus{border-color:var(--amber)}
+
+.adm-row{
+  display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+  padding:10px 4px;border-bottom:1px solid var(--line-soft);
+}
+.adm-row.shut{opacity:.5}
+.adm-mid h4{margin:0 0 3px;font-size:.96rem;font-weight:600;color:var(--paper)}
+.adm-mid p{margin:0;color:var(--paper-dim);font-size:.8rem}
+.adm-tag{
+  font-family:'IBM Plex Mono',monospace;font-size:.56rem;
+  letter-spacing:.12em;color:var(--paper-dark);margin-top:4px;
+}
+.shutmark{
+  font-family:'IBM Plex Mono',monospace;font-size:.5rem;letter-spacing:.18em;
+  color:var(--rust);border:1px solid var(--rust);padding:1px 4px;margin-left:6px;
+}
+
 /* ---------- war / fleet / cards ---------- */
 #warSetupScreen .panel,#fleetScreen .panel,#cardScreen .panel{max-width:820px}
 .col2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:18px}
@@ -497,6 +561,7 @@ table.board tr.you td.nm::after{
       <button class="btn" id="btnWarTitle">War</button>
       <button class="btn" id="btnBoardTitle">Ace Board</button>
     </div>
+    <div id="noticeBox"></div>
     <div class="sub" style="margin-top:6px;font-size:.82rem;opacity:.72">
       New here? <b>Learn to Fly</b> is a free beginner lesson — no enemies, no fuel or ammo used.
     </div>
@@ -600,6 +665,64 @@ table.board tr.you td.nm::after{
     <div class="actions" style="justify-content:space-between">
       <button class="btn btn-sm" id="btnBoardRefresh">Refresh</button>
       <button class="btn btn-go" id="btnBoardBack">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN ============ -->
+<div class="screen" id="adminScreen">
+  <div class="panel">
+    <div class="hangar-head">
+      <div>
+        <div class="eyebrow">Restricted · Theatre Staff Only</div>
+        <h2 class="stencil">Event Control</h2>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:10px">
+      Set a target and a reward. Pilots who reach it collect automatically
+      when their next match ends, until the spots run out.
+    </p>
+
+    <div class="colhead" style="margin-top:18px">New Event</div>
+    <div class="ev-form">
+      <label>Title<input id="evTitle" maxlength="60" placeholder="First Blood" /></label>
+      <label>Note to pilots<input id="evDesc" maxlength="160" placeholder="Rack up 50 career kills" /></label>
+      <label>Condition
+        <select id="evStat">
+          <option value="totalKills">Career kills</option>
+          <option value="best">Best single sortie</option>
+          <option value="sorties">Sorties flown</option>
+          <option value="wave">Furthest sortie reached</option>
+          <option value="warWins">Wars won</option>
+          <option value="legendWins">Legend wars won</option>
+        </select>
+      </label>
+      <label>Target<input id="evTarget" type="number" min="1" value="50" /></label>
+      <label>Spots<input id="evLimit" type="number" min="1" value="3" /></label>
+      <label>Ends after (days, 0 = never)<input id="evDays" type="number" min="0" value="0" /></label>
+      <label>Reward
+        <select id="evRewardType">
+          <option value="money">Money</option>
+          <option value="card">A specific card</option>
+          <option value="randomCard">A random card of a rarity</option>
+        </select>
+      </label>
+      <label id="rowMoney">Amount<input id="evAmount" type="number" min="1" value="5000" /></label>
+      <label id="rowCard" style="display:none">Card<select id="evCardId"></select></label>
+      <label id="rowRarity" style="display:none">Rarity<select id="evRarity"></select></label>
+    </div>
+    <div class="actions" style="justify-content:flex-start;margin-top:12px">
+      <button class="btn btn-go" id="btnEvCreate">Create Event</button>
+      <button class="btn btn-sm" id="btnEvRefresh">Refresh</button>
+    </div>
+    <div class="board-status" id="adminStatus"></div>
+
+    <div class="colhead" style="margin-top:14px">All Events</div>
+    <div class="scrollbox" id="adminList" style="max-height:min(34vh,310px)"></div>
+
+    <hr class="rule" />
+    <div class="actions" style="justify-content:flex-end">
+      <button class="btn btn-go" id="btnAdminClose">Close</button>
     </div>
   </div>
 </div>
@@ -965,7 +1088,7 @@ function newProfile(){
     ownedPlanes:{kestrel:true}, ownedWeapons:{mg77:true},
     up:{armor:0,tank:0,engine:0,cooling:0,sight:0,thirst:0,racks:0,scav:0},
     totalKills:0, sorties:0, best:0, rounds:0,
-    fleet:[], flagship:0, cards:{}, warWins:0, warLosses:0,
+    fleet:[], flagship:0, cards:{}, warWins:0, warLosses:0, warWinsBy:{},
   };
 }
 
@@ -3566,6 +3689,7 @@ function finishSortie(survived){
   disarmMatch();
   saveProfile();
   submitScore();          // push the new score to the shared Ace Board
+  checkEvents();          // collect any standing-order reward now earned
 }
 
 /* ============================================================
@@ -3818,6 +3942,7 @@ function endDiscovery(reason){
   saveProfile();
   disarmMatch();
   submitScore();          // push the new score to the shared Ace Board
+  checkEvents();          // collect any standing-order reward now earned
   // put the tight combat world back for the hangar backdrop and next sortie
   arenaBound=ARENA; worldExtent=ARENA; rebuildWorld();
 
@@ -4325,6 +4450,7 @@ function hydrate(saved){
     cards:      Object.assign({}, saved.cards||{}),
     warWins:    saved.warWins    ?? 0,
     warLosses:  saved.warLosses  ?? 0,
+    warWinsBy:  Object.assign({}, saved.warWinsBy||{}),
   };
   // pre-ammo saves: carry the single fitted gun over as the loadout and
   // issue a fair opening load for everything already paid for
@@ -4518,6 +4644,10 @@ async function loadBoard(){
   }
 }
 
+$('btnAdminClose').onclick    = ()=>{ show('titleScreen'); loadNotices(); };
+$('btnEvCreate').onclick      = ()=>adminCreate();
+$('btnEvRefresh').onclick     = ()=>adminRefresh();
+$('evRewardType').onchange    = ()=>adminRewardUI();
 $('btnWarTitle').onclick      = ()=>openWar('titleScreen');
 $('btnWarHangarOpen').onclick = ()=>openWar('hangarScreen');
 $('btnCardsHangar').onclick   = ()=>{ cardReturn='hangarScreen'; renderCards(); show('cardScreen'); };
@@ -4952,6 +5082,8 @@ function endWar(won){
     pay = Math.round((600 + S.earned) * d.mul * ef.moneyMul * WAR_PAY);
     P.money += pay;
     P.warWins = (P.warWins||0)+1;
+    P.warWinsBy = P.warWinsBy || {};
+    P.warWinsBy[d.id] = (P.warWinsBy[d.id]||0)+1;
     card = rollCard(d.id);
     giveCard(card.id);
   } else {
@@ -4983,6 +5115,7 @@ function endWar(won){
   disarmMatch();
   saveProfile();
   submitScore();
+  checkEvents();          // collect any standing-order reward now earned
   show('warResultScreen');
 }
 
@@ -5138,6 +5271,266 @@ function openWar(from){
   show('warSetupScreen');
 }
 
+/* ============================================================
+   EVENTS + ADMIN PANEL
+   Events are set by an admin and stored on the server. Any pilot who
+   meets the target claims automatically the next time a match ends.
+   ============================================================ */
+
+/* The phrase that opens the admin panel, typed on the title screen.
+   It is not tied to any account — whoever knows it is an admin.
+   This has to live in the page so a player who reads the source can
+   find it. It keeps friends out, not someone determined. */
+const ADMIN_PHRASE = 'IM BACK';
+
+const EVENT_STATS = {
+  totalKills:'Career kills',
+  best:      'Best single sortie',
+  sorties:   'Sorties flown',
+  wave:      'Furthest sortie reached',
+  warWins:   'Wars won',
+  legendWins:'Legend wars won',
+};
+
+/* read the pilot's current number for an event's condition */
+function statValue(stat){
+  if(!P) return 0;
+  switch(stat){
+    case 'totalKills': return P.totalKills||0;
+    case 'best':       return P.best||0;
+    case 'sorties':    return P.sorties||0;
+    case 'wave':       return P.wave||1;
+    case 'warWins':    return P.warWins||0;
+    case 'legendWins': return (P.warWinsBy&&P.warWinsBy.legend)||0;
+    default: return 0;
+  }
+}
+
+function rewardText(r){
+  if(!r) return '—';
+  if(r.type==='money')      return money(r.amount);
+  if(r.type==='card'){
+    const c=cardDef(r.cardId);
+    return c ? c.name : 'a card';
+  }
+  if(r.type==='randomCard') return 'a random '+(RARITY[r.rarity]||RARITY[0]).name+' card';
+  return '—';
+}
+
+function grantReward(r){
+  if(!r) return null;
+  if(r.type==='money'){ P.money += r.amount; return money(r.amount); }
+  if(r.type==='card'){
+    const c=cardDef(r.cardId);
+    if(c){ giveCard(c.id); return c.name; }
+    return null;
+  }
+  if(r.type==='randomCard'){
+    const pool=CARDS.filter(c=>c.rarity===r.rarity);
+    const c=pool[rndi(0,pool.length-1)];
+    giveCard(c.id); return c.name;
+  }
+  return null;
+}
+
+/* ---- auto-claim, run after every match ---- */
+let claimBusy=false;
+async function checkEvents(){
+  if(!currentUser || !P || claimBusy) return;
+  claimBusy=true;
+  try{
+    const data = await apiFetch('/api/events?me='+encodeURIComponent(currentUser), null, 12000);
+    for(const ev of (data.events||[])){
+      if(statValue(ev.stat) < ev.target) continue;
+      let res;
+      try{
+        res = await apiFetch('/api/claim', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ username:currentUser, id:ev.id, value:statValue(ev.stat) })
+        }, 12000);
+      }catch(e){ continue; }
+      if(res && res.ok){
+        const got = grantReward(res.reward);
+        saveProfile();
+        toast('EVENT · '+res.title+' · '+(got||'reward')+' ('+res.place+'/'+res.limit+')');
+      }
+    }
+  }catch(e){
+    // offline or the server is asleep — try again after the next match
+  }finally{ claimBusy=false; }
+}
+
+/* ---- notice board on the title screen ---- */
+async function loadNotices(){
+  const box=$('noticeBox'); if(!box) return;
+  box.innerHTML='<div class="notice-wait">Checking orders…</div>';
+  try{
+    const q = currentUser ? '?me='+encodeURIComponent(currentUser) : '';
+    const data = await apiFetch('/api/events'+q, null, BOARD_TIMEOUT);
+    const list=data.events||[];
+    if(!list.length){ box.innerHTML=''; return; }
+
+    box.innerHTML = '<div class="notice-head">Standing Orders</div>' + list.map(ev=>{
+      const have=statValue(ev.stat), pct=clamp(have/ev.target,0,1)*100;
+      const done=have>=ev.target;
+      const mine=(ev.claimedBy||[]).some(u=>currentUser&&u.toLowerCase()===currentUser.toLowerCase());
+      let when='';
+      if(ev.expires){
+        const left=ev.expires-Date.now();
+        if(left>0){
+          const h=Math.floor(left/3600000), m=Math.floor(left%3600000/60000);
+          when = h>24 ? ' · '+Math.floor(h/24)+'d left' : (h>0?' · '+h+'h left':' · '+m+'m left');
+        }
+      }
+      return '<div class="notice'+(mine?' claimed':'')+'">'
+        + '<div class="notice-top"><b>'+esc(ev.title)+'</b>'
+        +   '<span class="notice-spots">'+(ev.limit-ev.taken)+' of '+ev.limit+' left'+when+'</span></div>'
+        + (ev.desc?'<div class="notice-desc">'+esc(ev.desc)+'</div>':'')
+        + '<div class="notice-cond">'+esc(ev.statLabel)+' · '+have+' / '+ev.target+'</div>'
+        + '<div class="notice-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div>'
+        + '<div class="notice-reward">Reward · '+esc(rewardText(ev.reward))
+        +   (mine?' · <span class="got">CLAIMED</span>':(done?' · <span class="got">READY — fly a match to collect</span>':''))
+        + '</div></div>';
+    }).join('');
+  }catch(e){
+    box.innerHTML='';   // no server, no notice board — the game plays on
+  }
+}
+
+/* ---- the secret phrase ---- */
+let adminBuf='';
+window.addEventListener('keydown', e=>{
+  const onTitle = $('titleScreen') && $('titleScreen').classList.contains('on');
+  if(!onTitle) { adminBuf=''; return; }
+  if(e.key && e.key.length===1){
+    adminBuf=(adminBuf+e.key).toUpperCase().slice(-20);
+    if(adminBuf.replace(/\s+/g,'').endsWith(ADMIN_PHRASE.replace(/\s+/g,''))){
+      adminBuf='';
+      openAdmin();
+    }
+  }
+});
+
+/* ---- admin panel ---- */
+function openAdmin(){
+  buildCardPicker();
+  adminRefresh();
+  show('adminScreen');
+  toast('Admin panel open');
+}
+
+function buildCardPicker(){
+  const sel=$('evCardId');
+  if(sel.options.length) return;         // only build it once
+  for(let r=5;r>=0;r--){
+    const g=document.createElement('optgroup');
+    g.label=RARITY[r].name;
+    CARDS.filter(c=>c.rarity===r).forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.id; o.textContent=c.name;
+      g.appendChild(o);
+    });
+    sel.appendChild(g);
+  }
+  const rs=$('evRarity');
+  RARITY.forEach((R,i)=>{
+    const o=document.createElement('option'); o.value=i; o.textContent=R.name; rs.appendChild(o);
+  });
+  rs.value=0;
+}
+
+function adminRewardUI(){
+  const t=$('evRewardType').value;
+  $('rowMoney').style.display  = t==='money'      ? '' : 'none';
+  $('rowCard').style.display   = t==='card'       ? '' : 'none';
+  $('rowRarity').style.display = t==='randomCard' ? '' : 'none';
+}
+
+function adminStatus(msg,bad){
+  const el=$('adminStatus');
+  el.textContent=msg||'';
+  el.classList.toggle('bad',!!bad);
+}
+
+async function adminRefresh(){
+  const box=$('adminList');
+  box.innerHTML='<div class="notice-wait">Loading…</div>';
+  try{
+    const data=await apiFetch('/api/admin/list',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key:ADMIN_PHRASE})
+    }, BOARD_TIMEOUT);
+    const list=data.events||[];
+    if(!list.length){ box.innerHTML='<div class="board-empty">No events yet.</div>'; return; }
+    box.innerHTML=list.map(ev=>
+      '<div class="adm-row'+(ev.open?'':' shut')+'" data-id="'+ev.id+'">'
+      + '<div class="adm-mid"><h4>'+esc(ev.title)+(ev.open?'':' <span class="shutmark">CLOSED</span>')+'</h4>'
+      +   '<p>'+esc(ev.statLabel)+' ≥ '+ev.target+' → '+esc(rewardText(ev.reward))+'</p>'
+      +   '<div class="adm-tag">'+ev.taken+'/'+ev.limit+' claimed'
+      +     (ev.claimedBy.length?' · '+ev.claimedBy.map(esc).join(', '):'')
+      +     (ev.expires?' · ends '+new Date(ev.expires).toLocaleString():'')+'</div>'
+      + '</div>'
+      + '<button class="btn btn-sm adm-del">Delete</button></div>'
+    ).join('');
+    box.querySelectorAll('.adm-del').forEach(b=>{
+      b.onclick=async()=>{
+        const id=b.closest('.adm-row').dataset.id;
+        b.disabled=true;
+        try{
+          await apiFetch('/api/admin/delete',{
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({key:ADMIN_PHRASE,id})
+          },12000);
+          adminRefresh();
+        }catch(e){ adminStatus('Could not delete.',true); b.disabled=false; }
+      };
+    });
+    adminStatus(list.length+' event'+(list.length===1?'':'s')+' on record');
+  }catch(e){
+    box.innerHTML='<div class="board-empty">Could not reach the server.</div>';
+    adminStatus('No connection to the server.',true);
+  }
+}
+
+async function adminCreate(){
+  const title=$('evTitle').value.trim();
+  if(title.length<2){ adminStatus('Give the event a title.',true); return; }
+  const target=Math.floor(Number($('evTarget').value)||0);
+  if(target<1){ adminStatus('Target must be at least 1.',true); return; }
+  const limit=Math.floor(Number($('evLimit').value)||1);
+
+  const type=$('evRewardType').value;
+  const reward={type};
+  if(type==='money'){
+    reward.amount=Math.floor(Number($('evAmount').value)||0);
+    if(reward.amount<1){ adminStatus('Reward must be at least $1.',true); return; }
+  } else if(type==='card'){
+    reward.cardId=$('evCardId').value;
+  } else {
+    reward.rarity=Number($('evRarity').value)||0;
+  }
+
+  let expires=null;
+  const days=Number($('evDays').value)||0;
+  if(days>0) expires=Date.now()+days*86400000;
+
+  $('btnEvCreate').disabled=true;
+  adminStatus('Creating…');
+  try{
+    await apiFetch('/api/admin/create',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ key:ADMIN_PHRASE, title,
+        desc:$('evDesc').value.trim(), stat:$('evStat').value,
+        target, limit, reward, expires })
+    }, BOARD_TIMEOUT);
+    $('evTitle').value=''; $('evDesc').value='';
+    adminStatus('Event created.');
+    adminRefresh();
+  }catch(e){
+    adminStatus('Could not create the event. Is the server awake?',true);
+  }finally{ $('btnEvCreate').disabled=false; }
+}
+
 /* ---- auth screen ---- */
 let authMode='login';
 function authMsg(t,ok){ const e=$('authMsg'); e.textContent=t||''; e.classList.toggle('ok',!!ok); }
@@ -5187,6 +5580,7 @@ function enterGame(username, profile){
   $('titleUser').textContent=username;
   rebuildWorld();
   show('titleScreen');
+  loadNotices();
   submitScore();          // put this pilot on the board (or refresh their row)
 }
 
