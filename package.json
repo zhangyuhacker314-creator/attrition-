@@ -1,0 +1,17 @@
+{
+  "name": "attrition-leaderboard",
+  "version": "1.0.0",
+  "description": "Game server and shared leaderboard for ATTRITION - Air Combat",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,28 @@
+# Render deployment config for ATTRITION.
+# If you put this file in your repo, Render can set everything up for you
+# with "New +" -> "Blueprint" instead of filling the form in by hand.
+
+services:
+  - type: web
+    name: attrition
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+
+      # ---- OPTIONAL: keep scores forever ----
+      # A free plan has no disk, so scores.json is wiped on every deploy.
+      # To keep scores permanently you need a paid plan with a disk.
+      # If you upgrade, uncomment BOTH the line below and the disk block,
+      # and scores will survive restarts and redeploys.
+      #
+      # - key: DATA_DIR
+      #   value: /var/data
+
+    # disk:
+    #   name: attrition-scores
+    #   mountPath: /var/data
+    #   sizeGB: 1
