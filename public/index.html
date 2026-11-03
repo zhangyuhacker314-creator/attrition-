@@ -293,6 +293,29 @@ body{
 .userbadge a{color:var(--paper-dim);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .userbadge a:hover{color:var(--amber)}
 
+.cmd-log{
+  background:var(--ink);border:1px solid var(--line);padding:10px 12px;
+  height:min(26vh,230px);overflow-y:auto;margin-top:10px;
+  font-family:'IBM Plex Mono',monospace;font-size:.72rem;line-height:1.7;
+  color:var(--paper-dim);
+}
+.cmd-log::-webkit-scrollbar{width:8px}
+.cmd-log::-webkit-scrollbar-track{background:var(--steel-2)}
+.cmd-log::-webkit-scrollbar-thumb{background:var(--line)}
+.cmd-line{word-break:break-word}
+.cmd-line.bad{color:var(--rust)}
+.cmd-line.good{color:var(--sage)}
+.cmd-line b{color:var(--paper)}
+.cmd-echo{color:var(--amber)}
+.cmd-dim{color:var(--paper-dark)}
+.cmd-input{display:flex;align-items:center;gap:8px;margin-top:8px}
+.cmd-input span{font-family:'IBM Plex Mono',monospace;color:var(--amber);font-size:.9rem}
+.cmd-input input{
+  flex:1;background:var(--ink);border:1px solid var(--line);color:var(--paper);
+  font-family:'IBM Plex Mono',monospace;font-size:.8rem;padding:9px 10px;outline:none;
+}
+.cmd-input input:focus{border-color:var(--amber)}
+
 /* ---------- notice board + admin ---------- */
 #noticeBox{margin-top:20px;text-align:left}
 .notice-head{
@@ -716,6 +739,14 @@ table.board tr.you td.nm::after{
       <button class="btn btn-sm" id="btnEvRefresh">Refresh</button>
     </div>
     <div class="board-status" id="adminStatus"></div>
+
+    <div class="colhead" style="margin-top:16px">Command Box</div>
+    <div class="cmd-log" id="cmdLog"></div>
+    <div class="cmd-input">
+      <span>&gt;</span>
+      <input id="cmdInput" placeholder="/help" autocomplete="off" spellcheck="false" />
+      <button class="btn btn-sm btn-go" id="btnCmdRun">Run</button>
+    </div>
 
     <div class="colhead" style="margin-top:14px">All Events</div>
     <div class="scrollbox" id="adminList" style="max-height:min(34vh,310px)"></div>
@@ -3690,6 +3721,7 @@ function finishSortie(survived){
   saveProfile();
   submitScore();          // push the new score to the shared Ace Board
   checkEvents();          // collect any standing-order reward now earned
+  collectMail();          // and any gift an admin has sent
 }
 
 /* ============================================================
@@ -3943,6 +3975,7 @@ function endDiscovery(reason){
   disarmMatch();
   submitScore();          // push the new score to the shared Ace Board
   checkEvents();          // collect any standing-order reward now earned
+  collectMail();          // and any gift an admin has sent
   // put the tight combat world back for the hangar backdrop and next sortie
   arenaBound=ARENA; worldExtent=ARENA; rebuildWorld();
 
@@ -4644,6 +4677,10 @@ async function loadBoard(){
   }
 }
 
+$('btnCmdRun').onclick        = ()=>{
+  const i=$('cmdInput'); const v=i.value; i.value=''; runCommand(v); i.focus();
+};
+$('cmdInput').onkeydown       = e=>{ if(e.key==='Enter'){ e.preventDefault(); $('btnCmdRun').click(); } };
 $('btnAdminClose').onclick    = ()=>{ show('titleScreen'); loadNotices(); };
 $('btnEvCreate').onclick      = ()=>adminCreate();
 $('btnEvRefresh').onclick     = ()=>adminRefresh();
@@ -5116,6 +5153,7 @@ function endWar(won){
   saveProfile();
   submitScore();
   checkEvents();          // collect any standing-order reward now earned
+  collectMail();          // and any gift an admin has sent
   show('warResultScreen');
 }
 
@@ -5414,6 +5452,7 @@ window.addEventListener('keydown', e=>{
 /* ---- admin panel ---- */
 function openAdmin(){
   buildCardPicker();
+  if(!$('cmdLog').children.length) cmdPrint('<span class="cmd-dim">Type /help for the command list.</span>');
   adminRefresh();
   show('adminScreen');
   toast('Admin panel open');
@@ -5531,6 +5570,190 @@ async function adminCreate(){
   }finally{ $('btnEvCreate').disabled=false; }
 }
 
+/* ============================================================
+   ADMIN COMMAND BOX
+   ============================================================ */
+
+function cmdPrint(line, kind){
+  const log = $('cmdLog');
+  const d = document.createElement('div');
+  d.className = 'cmd-line' + (kind ? ' '+kind : '');
+  d.innerHTML = line;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+function cmdErr(l){ cmdPrint(l,'bad'); }
+function cmdOk(l){ cmdPrint(l,'good'); }
+
+const CMD_HELP = [
+  ['/give &lt;pilot&gt; &lt;amount&gt;',        'send money'],
+  ['/givecard &lt;pilot&gt; &lt;card id&gt; [n]', 'send a specific card'],
+  ['/givecard &lt;pilot&gt; random &lt;rarity&gt; [n]', 'send random cards of a rarity'],
+  ['/mail &lt;pilot&gt;',                   'see what is waiting for them'],
+  ['/unmail &lt;pilot&gt;',                 'cancel everything waiting'],
+  ['/delete &lt;pilot&gt;',                 'remove them from the leaderboard'],
+  ['/cards &lt;search&gt;',                 'look up card ids'],
+  ['/help',                             'this list'],
+];
+
+const RARITY_WORDS = { common:0, c:0, r:1, rare:1, sr:2, ssr:3, ir:4, hyper:5, hyp:5 };
+
+async function adminPost(path, body){
+  return apiFetch(path, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(Object.assign({ key: ADMIN_PHRASE }, body))
+  }, BOARD_TIMEOUT);
+}
+
+async function runCommand(raw){
+  const text = raw.trim();
+  if(!text) return;
+  cmdPrint('<span class="cmd-echo">&gt; '+esc(text)+'</span>');
+
+  const parts = text.split(/\s+/);
+  const cmd = parts[0].toLowerCase().replace(/^\//,'');
+  const a = parts.slice(1);
+
+  try{
+    /* ---- help ---- */
+    if(cmd==='help' || cmd==='?'){
+      CMD_HELP.forEach(([c,d])=>cmdPrint('<b>'+c+'</b> — '+d));
+      return;
+    }
+
+    /* ---- look up card ids ---- */
+    if(cmd==='cards'){
+      const q=(a.join(' ')||'').toLowerCase();
+      if(!q){ cmdErr('Give me something to search for, e.g. /cards hyper'); return; }
+      const hits=CARDS.filter(c=>c.id.includes(q)||c.name.toLowerCase().includes(q)).slice(0,12);
+      if(!hits.length){ cmdErr('No cards match that.'); return; }
+      hits.forEach(c=>cmdPrint('<b>'+c.id+'</b> — '+esc(c.name)+' <span class="cmd-dim">('+RARITY[c.rarity].name+')</span>'));
+      if(hits.length===12) cmdPrint('<span class="cmd-dim">…more. Narrow the search.</span>');
+      return;
+    }
+
+    /* every command past here needs a pilot name */
+    if(!a.length){ cmdErr('That command needs a pilot name. Try /help'); return; }
+    const who = a[0];
+
+    /* ---- money ---- */
+    if(cmd==='give'){
+      const amt = Math.floor(Number(a[1]));
+      if(!Number.isFinite(amt) || amt<1){ cmdErr('How much? e.g. /give '+esc(who)+' 5000'); return; }
+      const r = await adminPost('/api/admin/gift', { username:who, gift:{type:'money', amount:amt} });
+      cmdOk('Queued '+money(amt)+' for '+esc(r.username)+'. They collect it next time they play.');
+      if(!r.known) cmdPrint('<span class="cmd-dim">Note: no pilot by that name has posted a score yet. Check the spelling.</span>');
+      return;
+    }
+
+    /* ---- cards ---- */
+    if(cmd==='givecard'){
+      if(!a[1]){ cmdErr('Which card? Try /cards hyper to find an id.'); return; }
+      let gift, label;
+      if(a[1].toLowerCase()==='random'){
+        const rk=(a[2]||'').toLowerCase();
+        if(!(rk in RARITY_WORDS)){ cmdErr('Rarity must be one of: common, r, sr, ssr, ir, hyper'); return; }
+        const n=Math.max(1,Math.min(99,Math.floor(Number(a[3])||1)));
+        gift={type:'randomCard', rarity:RARITY_WORDS[rk], count:n};
+        label=n+'x random '+RARITY[RARITY_WORDS[rk]].name+' card'+(n>1?'s':'');
+      } else {
+        const c=cardDef(a[1].toLowerCase());
+        if(!c){ cmdErr('No card with id "'+esc(a[1])+'". Try /cards '+esc(a[1])+''); return; }
+        const n=Math.max(1,Math.min(99,Math.floor(Number(a[2])||1)));
+        gift={type:'card', cardId:c.id, count:n};
+        label=n+'x '+c.name;
+      }
+      const r = await adminPost('/api/admin/gift', { username:who, gift });
+      cmdOk('Queued '+esc(label)+' for '+esc(r.username)+'.');
+      if(!r.known) cmdPrint('<span class="cmd-dim">Note: no pilot by that name has posted a score yet. Check the spelling.</span>');
+      return;
+    }
+
+    /* ---- inspect a mailbox ---- */
+    if(cmd==='mail'){
+      const r = await adminPost('/api/admin/mail', { username:who });
+      if(!r.gifts.length){ cmdPrint('Nothing waiting for '+esc(r.username)+'.'); return; }
+      cmdPrint('<b>'+r.gifts.length+'</b> waiting for '+esc(r.username)+':');
+      r.gifts.forEach(g=>{
+        let d;
+        if(g.type==='money') d=money(g.amount);
+        else if(g.type==='card'){ const c=cardDef(g.cardId); d=(g.count||1)+'x '+(c?c.name:g.cardId); }
+        else d=(g.count||1)+'x random '+RARITY[g.rarity].name;
+        cmdPrint('&nbsp;&nbsp;· '+esc(d));
+      });
+      return;
+    }
+
+    /* ---- cancel a mailbox ---- */
+    if(cmd==='unmail'){
+      const r = await adminPost('/api/admin/unmail', { username:who });
+      cmdOk(r.removed ? 'Cancelled '+r.removed+' gift(s) for '+esc(r.username)+'.'
+                      : 'Nothing was waiting for '+esc(r.username)+'.');
+      return;
+    }
+
+    /* ---- remove from the leaderboard ---- */
+    if(cmd==='delete'){
+      const r = await adminPost('/api/admin/removePlayer', { username:who });
+      if(r.removed){
+        cmdOk('Removed '+esc(r.username)+' from the leaderboard'
+              + (r.claimsCleared ? ' and cleared '+r.claimsCleared+' event claim(s)' : '') + '.');
+        cmdPrint('<span class="cmd-dim">Their own account still works on their computer. '
+               + 'If they fly again they will post a new score.</span>');
+      } else {
+        cmdErr('No pilot called '+esc(r.username)+' on the leaderboard.');
+      }
+      return;
+    }
+
+    cmdErr('Unknown command. Try /help');
+  }catch(err){
+    cmdErr('Server did not answer. Is it awake?');
+  }
+}
+
+/* ============================================================
+   COLLECTING POST
+   Runs at login and after every match.
+   ============================================================ */
+let mailBusy=false;
+async function collectMail(){
+  if(!currentUser || !P || mailBusy) return;
+  mailBusy=true;
+  try{
+    const r = await apiFetch('/api/mail/collect', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: currentUser })
+    }, 12000);
+    const gifts = r.gifts || [];
+    if(!gifts.length) return;
+
+    const got=[];
+    for(const g of gifts){
+      if(g.type==='money'){
+        P.money += g.amount; got.push(money(g.amount));
+      } else if(g.type==='card'){
+        const c=cardDef(g.cardId);
+        if(c){ for(let i=0;i<(g.count||1);i++) giveCard(c.id);
+               got.push((g.count||1)+'x '+c.name); }
+      } else if(g.type==='randomCard'){
+        const pool=CARDS.filter(c=>c.rarity===g.rarity);
+        const names=[];
+        for(let i=0;i<(g.count||1);i++){
+          const c=pool[rndi(0,pool.length-1)]; giveCard(c.id); names.push(c.name);
+        }
+        got.push(names.join(', '));
+      }
+    }
+    if(got.length){
+      saveProfile();
+      toast('POST · '+got.join(' · '));
+    }
+  }catch(e){
+    // server asleep or offline — the post keeps until next time
+  }finally{ mailBusy=false; }
+}
+
 /* ---- auth screen ---- */
 let authMode='login';
 function authMsg(t,ok){ const e=$('authMsg'); e.textContent=t||''; e.classList.toggle('ok',!!ok); }
@@ -5581,6 +5804,7 @@ function enterGame(username, profile){
   rebuildWorld();
   show('titleScreen');
   loadNotices();
+  collectMail();
   submitScore();          // put this pilot on the board (or refresh their row)
 }
 
