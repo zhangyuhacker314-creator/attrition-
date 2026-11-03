@@ -616,16 +616,34 @@ app.post('/api/trade/accept', rateLimit, (req,res)=>{
   res.json({ ok:true, got:t.offer, seller:t.seller });
 });
 
-/* ---- collect what is waiting: payments, and anything refunded ---- */
+/* ---- collect what is waiting: payments, and anything refunded ----
+   This hands the items over but KEEPS them. They are only deleted once
+   the game confirms it received them, through /api/trade/ack below.
+   If the reply never arrives — a slow wake-up, a closed laptop, a
+   dropped connection — the payment is still here next time.
+   The game skips anything it has already applied, so holding them does
+   not pay anyone twice. */
 app.post('/api/trade/pending', rateLimit, (req,res)=>{
   const name = cleanName((req.body||{}).username);
   if(!name) return res.status(400).json({ error:'Bad callsign.' });
   const key = name.toLowerCase();
-  const waiting = pending[key] || [];
-  if(!waiting.length) return res.json({ ok:true, items:[] });
-  delete pending[key];
-  schedulePendingSave();
-  res.json({ ok:true, items:waiting });
+  res.json({ ok:true, items: pending[key] || [] });
+});
+
+/* ---- the game confirms what it actually banked ---- */
+app.post('/api/trade/ack', rateLimit, (req,res)=>{
+  const b = req.body || {};
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+  const ids = Array.isArray(b.ids) ? b.ids.filter(i=>typeof i==='string').slice(0,200) : [];
+  if(!ids.length) return res.json({ ok:true, left: (pending[name.toLowerCase()]||[]).length });
+
+  const key = name.toLowerCase();
+  const before = (pending[key]||[]).length;
+  pending[key] = (pending[key]||[]).filter(p=>!ids.includes(p.id));
+  if(!pending[key].length) delete pending[key];
+  if(before !== (pending[key]||[]).length) schedulePendingSave();
+  res.json({ ok:true, cleared: before-(pending[key]||[]).length, left:(pending[key]||[]).length });
 });
 
 /* ---- my own open listings ---- */
