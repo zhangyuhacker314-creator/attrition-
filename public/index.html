@@ -1203,6 +1203,7 @@ function newProfile(){
     up:{armor:0,tank:0,engine:0,cooling:0,sight:0,thirst:0,racks:0,scav:0},
     totalKills:0, sorties:0, best:0, rounds:0,
     fleet:[], flagship:0, cards:{}, warWins:0, warLosses:0, warWinsBy:{},
+    gotPay:[],   // ids of trade payments already banked, so none is applied twice
   };
 }
 
@@ -4567,6 +4568,7 @@ function hydrate(saved){
     warWins:    saved.warWins    ?? 0,
     warLosses:  saved.warLosses  ?? 0,
     warWinsBy:  Object.assign({}, saved.warWinsBy||{}),
+    gotPay:     Array.isArray(saved.gotPay) ? saved.gotPay.slice(-200) : [],
   };
   // pre-ammo saves: carry the single fitted gun over as the loadout and
   // issue a fair opening load for everything already paid for
@@ -6011,18 +6013,43 @@ async function collectTradePay(){
   if(!currentUser || !P || pendBusy) return;
   pendBusy=true;
   try{
+    /* A generous timeout: a sleeping free server can take almost a
+       minute to wake, and giving up early used to lose the payment. */
     const r=await apiFetch('/api/trade/pending',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({username:currentUser})
-    }, 12000);
+    }, BOARD_TIMEOUT);
+
     const items=r.items||[];
     if(!items.length) return;
-    const got=[];
-    for(const p of items){ invAdd(p.item); got.push(itemLabel(p.item)); }
-    saveProfile();
-    toast('Trade paid · '+got.join(' · '));
+
+    P.gotPay = Array.isArray(P.gotPay) ? P.gotPay : [];
+    const got=[], ids=[];
+    for(const p of items){
+      ids.push(p.id);
+      if(P.gotPay.includes(p.id)) continue;   // already banked on an earlier try
+      invAdd(p.item);
+      P.gotPay.push(p.id);
+      got.push(itemLabel(p.item));
+    }
+    if(P.gotPay.length>200) P.gotPay = P.gotPay.slice(-200);
+
+    if(got.length){
+      await saveProfile();                    // bank it BEFORE telling the server
+      toast('Trade paid · '+got.join(' · '));
+    }
+
+    /* Only now does the server let go of them. If this call never lands,
+       the items stay queued and the lines above skip them next time. */
+    try{
+      await apiFetch('/api/trade/ack',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:currentUser, ids})
+      }, BOARD_TIMEOUT);
+    }catch(e){ /* they will simply be offered again next time */ }
+
   }catch(e){
-    // offline; the payment keeps until next time
+    // offline or still waking; the payment keeps until next time
   }finally{ pendBusy=false; }
 }
 
