@@ -32,6 +32,7 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR   = process.env.DATA_DIR || __dirname;
 const SCORE_FILE = path.join(DATA_DIR, 'scores.json');
 const EVENT_FILE = path.join(DATA_DIR, 'events.json');
+const MAIL_FILE  = path.join(DATA_DIR, 'mail.json');
 
 /* The phrase that unlocks the admin panel. Anyone who knows it is an
    admin — it is not tied to any account. You can change it here, or set
@@ -127,13 +128,46 @@ function saveEvents(){
   });
 }
 
+/* ---- the mailbox: gifts waiting for a pilot to log in ---- */
+let mail = {};
+
+function loadMail(){
+  try{
+    const parsed = JSON.parse(fs.readFileSync(MAIL_FILE,'utf8'));
+    if(parsed && typeof parsed==='object'){
+      mail = parsed;
+      const n = Object.values(mail).reduce((a,b)=>a+b.length,0);
+      console.log(`Loaded ${n} pending gift(s).`);
+      return;
+    }
+  }catch(err){
+    if(err.code !== 'ENOENT') console.warn('Could not read mail.json:', err.message);
+  }
+  mail = {};
+}
+
+let mailTimer = null;
+function scheduleMailSave(){
+  if(mailTimer) return;
+  mailTimer = setTimeout(()=>{ mailTimer=null; saveMail(); }, 500);
+}
+function saveMail(){
+  const tmp = MAIL_FILE + '.tmp';
+  fs.writeFile(tmp, JSON.stringify(mail,null,2), 'utf8', err=>{
+    if(err){ console.error('Mail save failed:', err.message); return; }
+    fs.rename(tmp, MAIL_FILE, e2=>{ if(e2) console.error('Mail rename failed:', e2.message); });
+  });
+}
+
 loadScores();
 loadEvents();
+loadMail();
 
 /* Last-chance save if Render shuts the server down. */
 function shutdown() {
   try { fs.writeFileSync(SCORE_FILE, JSON.stringify(scores, null, 2), 'utf8'); } catch (e) {}
   try { fs.writeFileSync(EVENT_FILE, JSON.stringify(events, null, 2), 'utf8'); } catch (e) {}
+  try { fs.writeFileSync(MAIL_FILE,  JSON.stringify(mail,   null, 2), 'utf8'); } catch (e) {}
   process.exit(0);
 }
 process.on('SIGTERM', shutdown);
@@ -432,6 +466,115 @@ app.post('/api/claim', rateLimit, (req, res) => {
   scheduleEventSave();
   res.json({ ok:true, reward: ev.reward, title: ev.title,
              place: ev.claims.length, limit: ev.limit });
+});
+
+/* ============================================================
+   ADMIN COMMANDS: gifts and removals
+   ============================================================ */
+
+/* ---- queue a gift for a pilot ---- */
+app.post('/api/admin/gift', rateLimit, (req, res) => {
+  const b = req.body || {};
+  if(b.key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+
+  const g = b.gift || {};
+  const gift = { id: 'g_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+                 at: Date.now() };
+
+  if(g.type === 'money'){
+    gift.type = 'money';
+    gift.amount = Math.max(1, Math.min(10000000, Math.floor(Number(g.amount)||0)));
+    if(!gift.amount) return res.status(400).json({ error:'Amount must be at least 1.' });
+  } else if(g.type === 'card'){
+    if(typeof g.cardId!=='string' || !/^[a-z]+_[a-z]+$/.test(g.cardId))
+      return res.status(400).json({ error:'Bad card id.' });
+    gift.type = 'card';
+    gift.cardId = g.cardId;
+    gift.count = Math.max(1, Math.min(99, Math.floor(Number(g.count)||1)));
+  } else if(g.type === 'randomCard'){
+    gift.type = 'randomCard';
+    gift.rarity = Math.max(0, Math.min(5, Math.floor(Number(g.rarity)||0)));
+    gift.count = Math.max(1, Math.min(99, Math.floor(Number(g.count)||1)));
+  } else {
+    return res.status(400).json({ error:'Unknown gift type.' });
+  }
+
+  const key = name.toLowerCase();
+  mail[key] = mail[key] || [];
+  if(mail[key].length >= 50)
+    return res.status(400).json({ error:'That pilot already has 50 gifts waiting.' });
+  mail[key].push(gift);
+  scheduleMailSave();
+
+  /* tell the admin whether this callsign has ever actually played */
+  const known = !!scores[key];
+  res.json({ ok:true, gift, known, pending: mail[key].length, username: name });
+});
+
+/* ---- what is waiting for a pilot (admin view, does not collect) ---- */
+app.post('/api/admin/mail', rateLimit, (req, res) => {
+  const b = req.body || {};
+  if(b.key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+  const key = name.toLowerCase();
+  res.json({ ok:true, username:name, known: !!scores[key], gifts: mail[key] || [] });
+});
+
+/* ---- cancel everything waiting for a pilot ---- */
+app.post('/api/admin/unmail', rateLimit, (req, res) => {
+  const b = req.body || {};
+  if(b.key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+  const key = name.toLowerCase();
+  const n = (mail[key]||[]).length;
+  delete mail[key];
+  scheduleMailSave();
+  res.json({ ok:true, removed:n, username:name });
+});
+
+/* ---- remove a pilot from the leaderboard ----
+   This clears their score row and any event claims they hold. It cannot
+   touch their account, which lives in their own browser. */
+app.post('/api/admin/removePlayer', rateLimit, (req, res) => {
+  const b = req.body || {};
+  if(b.key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+
+  const key = name.toLowerCase();
+  const had = !!scores[key];
+  delete scores[key];
+  scheduleSave();
+
+  let claimsCleared = 0;
+  for(const ev of Object.values(events)){
+    const before = ev.claims.length;
+    ev.claims = ev.claims.filter(c => c.user.toLowerCase() !== key);
+    claimsCleared += before - ev.claims.length;
+  }
+  if(claimsCleared) scheduleEventSave();
+
+  res.json({ ok:true, username:name, removed:had, claimsCleared });
+});
+
+/* ---- a pilot collects their post ----
+   Gifts are handed over once. The server marks them collected as it
+   sends them, so a refresh cannot claim the same gift twice. */
+app.post('/api/mail/collect', rateLimit, (req, res) => {
+  const name = cleanName((req.body||{}).username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+  const key = name.toLowerCase();
+  const waiting = mail[key] || [];
+  if(!waiting.length) return res.json({ ok:true, gifts:[] });
+
+  delete mail[key];
+  scheduleMailSave();
+  res.json({ ok:true, gifts: waiting });
 });
 
 /* A tiny "are you awake?" endpoint. The game pings this first so it can
