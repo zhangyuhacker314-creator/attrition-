@@ -32,6 +32,8 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR   = process.env.DATA_DIR || __dirname;
 const SCORE_FILE = path.join(DATA_DIR, 'scores.json');
 const EVENT_FILE = path.join(DATA_DIR, 'events.json');
+const TRADE_FILE = path.join(DATA_DIR, 'trades.json');
+const PEND_FILE  = path.join(DATA_DIR, 'pending.json');
 
 /* The phrase
 /* The phrase that unlocks the admin panel. Anyone who knows it is an
@@ -128,13 +130,50 @@ function saveEvents(){
   });
 }
 
-loadScores();loadScores();
+/* ---- trade listings, and the deliveries waiting for sellers ---- */
+let trades = {}, pending = {};
+
+function loadJson(file, label){
+  try{
+    const parsed = JSON.parse(fs.readFileSync(file,'utf8'));
+    if(parsed && typeof parsed==='object'){
+      console.log(`Loaded ${Object.keys(parsed).length} ${label}.`);
+      return parsed;
+    }
+  }catch(err){
+    if(err.code !== 'ENOENT') console.warn(`Could not read ${file}:`, err.message);
+  }
+  return {};
+}
+function writeJson(file, data, label){
+  const tmp = file + '.tmp';
+  fs.writeFile(tmp, JSON.stringify(data,null,2), 'utf8', err=>{
+    if(err){ console.error(label+' save failed:', err.message); return; }
+    fs.rename(tmp, file, e2=>{ if(e2) console.error(label+' rename failed:', e2.message); });
+  });
+}
+
+let trTimer=null, peTimer=null;
+function scheduleTradeSave(){
+  if(trTimer) return;
+  trTimer=setTimeout(()=>{ trTimer=null; writeJson(TRADE_FILE,trades,'Trades'); },500);
+}
+function schedulePendingSave(){
+  if(peTimer) return;
+  peTimer=setTimeout(()=>{ peTimer=null; writeJson(PEND_FILE,pending,'Pending'); },500);
+}
+
+loadScores();
 loadEvents();
+trades  = loadJson(TRADE_FILE,'trade listing(s)');
+pending = loadJson(PEND_FILE, 'pending delivery queue(s)');
 
 /* Last-chance save if Render shuts the server down. */
 function shutdown() {
   try { fs.writeFileSync(SCORE_FILE, JSON.stringify(scores, null, 2), 'utf8'); } catch (e) {}
   try { fs.writeFileSync(EVENT_FILE, JSON.stringify(events, null, 2), 'utf8'); } catch (e) {}
+  try { fs.writeFileSync(TRADE_FILE, JSON.stringify(trades, null, 2), 'utf8'); } catch (e) {}
+  try { fs.writeFileSync(PEND_FILE,  JSON.stringify(pending,null, 2), 'utf8'); } catch (e) {}
   process.exit(0);
 }
 process.on('SIGTERM', shutdown);
@@ -435,7 +474,178 @@ app.post('/api/claim', rateLimit, (req, res) => {
              place: ev.claims.length, limit: ev.limit });
 });
 
-/* A tiny "are you awake?" endpoint./* A tiny "are you awake?" endpoint. The game pings this first so it can
+/* ============================================================
+   TRADE CENTRE
+   A pilot lists something they own and names what they will take
+   for it. The listed item leaves their game the moment they post it
+   and the server holds it, so nothing can be sold twice or used
+   while it sits on the board.
+   ============================================================ */
+
+/* ---- what counts as a tradeable item ---- */
+function cleanItem(raw){
+  if(!raw || typeof raw!=='object') return null;
+  const k = raw.kind;
+
+  if(k==='money'){
+    const a = Math.floor(Number(raw.amount)||0);
+    if(a<1 || a>10000000) return null;
+    return { kind:'money', amount:a };
+  }
+  if(k==='card'){
+    if(typeof raw.cardId!=='string' || !/^[a-z]+_[a-z]+$/.test(raw.cardId)) return null;
+    const n = Math.max(1, Math.min(99, Math.floor(Number(raw.count)||1)));
+    return { kind:'card', cardId:raw.cardId, count:n };
+  }
+  if(k==='plane'){
+    if(typeof raw.planeId!=='string' || !/^[a-z0-9_-]{1,24}$/.test(raw.planeId)) return null;
+    const n = Math.max(1, Math.min(20, Math.floor(Number(raw.count)||1)));
+    return { kind:'plane', planeId:raw.planeId, count:n };
+  }
+  if(k==='weapon'){
+    if(typeof raw.weaponId!=='string' || !/^[a-z0-9_-]{1,24}$/.test(raw.weaponId)) return null;
+    return { kind:'weapon', weaponId:raw.weaponId };
+  }
+  if(k==='ammo'){
+    if(typeof raw.weaponId!=='string' || !/^[a-z0-9_-]{1,24}$/.test(raw.weaponId)) return null;
+    const n = Math.max(1, Math.min(100000, Math.floor(Number(raw.count)||0)));
+    if(n<1) return null;
+    return { kind:'ammo', weaponId:raw.weaponId, count:n };
+  }
+  return null;
+}
+
+function sameItem(a,b){
+  if(!a||!b||a.kind!==b.kind) return false;
+  if(a.kind==='money')  return a.amount===b.amount;
+  if(a.kind==='card')   return a.cardId===b.cardId && a.count===b.count;
+  if(a.kind==='plane')  return a.planeId===b.planeId && a.count===b.count;
+  if(a.kind==='weapon') return a.weaponId===b.weaponId;
+  if(a.kind==='ammo')   return a.weaponId===b.weaponId && a.count===b.count;
+  return false;
+}
+
+/* how many listings one pilot may have open at once */
+const MAX_LISTINGS = 12;
+
+/* ---- post a listing ---- */
+app.post('/api/trade/create', rateLimit, (req,res)=>{
+  const b = req.body||{};
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+
+  const offer = cleanItem(b.offer);
+  if(!offer) return res.status(400).json({ error:'Nothing valid to trade.' });
+
+  const wantsRaw = Array.isArray(b.wants) ? b.wants.slice(0,5) : [];
+  const wants = wantsRaw.map(cleanItem).filter(Boolean);
+  if(!wants.length) return res.status(400).json({ error:'Say what you want for it.' });
+
+  const key = name.toLowerCase();
+  const mine = Object.values(trades).filter(t=>t.status==='open' && t.sellerKey===key);
+  if(mine.length >= MAX_LISTINGS)
+    return res.status(400).json({ error:'You already have '+MAX_LISTINGS+' listings open.' });
+
+  const id = 't_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+  trades[id] = { id, seller:name, sellerKey:key, offer, wants,
+                 status:'open', created:Date.now() };
+  scheduleTradeSave();
+  res.json({ ok:true, trade: trades[id] });
+});
+
+/* ---- the board ---- */
+app.get('/api/trade/open', (req,res)=>{
+  const list = Object.values(trades)
+    .filter(t=>t.status==='open')
+    .sort((a,b)=>b.created-a.created)
+    .slice(0,200);
+  res.json({ ok:true, trades:list });
+});
+
+/* ---- take a listing down; the item comes straight back ---- */
+app.post('/api/trade/cancel', rateLimit, (req,res)=>{
+  const b = req.body||{};
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+  const t = trades[b.id];
+  if(!t) return res.status(404).json({ error:'No such listing.' });
+  if(t.sellerKey !== name.toLowerCase())
+    return res.status(403).json({ error:'That is not your listing.' });
+  if(t.status!=='open') return res.json({ ok:false, reason:'gone' });
+
+  t.status='cancelled'; t.closed=Date.now();
+  scheduleTradeSave();
+  res.json({ ok:true, refund:t.offer });     // the client puts it back
+});
+
+/* ---- accept a listing ----
+   The buyer has already taken the payment out of their own game before
+   calling this. If the listing turns out to be gone we say so and they
+   put it back. */
+app.post('/api/trade/accept', rateLimit, (req,res)=>{
+  const b = req.body||{};
+  const name = cleanName(b.username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+
+  const t = trades[b.id];
+  if(!t) return res.status(404).json({ error:'No such listing.' });
+  if(t.status!=='open') return res.json({ ok:false, reason:'gone' });
+  if(t.sellerKey === name.toLowerCase())
+    return res.json({ ok:false, reason:'own' });
+
+  const idx = Math.floor(Number(b.wantIndex));
+  if(!(idx>=0 && idx < t.wants.length)) return res.status(400).json({ error:'Bad choice.' });
+
+  /* the payment the buyer says they sent must match what was asked for */
+  const paid = cleanItem(b.payment);
+  if(!paid || !sameItem(paid, t.wants[idx]))
+    return res.status(400).json({ error:'That is not what the listing asked for.' });
+
+  t.status='done';
+  t.buyer=name; t.paid=paid; t.closed=Date.now();
+
+  /* the seller is probably offline, so their payment waits for them */
+  pending[t.sellerKey] = pending[t.sellerKey] || [];
+  pending[t.sellerKey].push({
+    id:'p_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+    item:paid, why:'sold', from:name, at:Date.now(),
+  });
+
+  scheduleTradeSave();
+  schedulePendingSave();
+  res.json({ ok:true, got:t.offer, seller:t.seller });
+});
+
+/* ---- collect what is waiting: payments, and anything refunded ---- */
+app.post('/api/trade/pending', rateLimit, (req,res)=>{
+  const name = cleanName((req.body||{}).username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+  const key = name.toLowerCase();
+  const waiting = pending[key] || [];
+  if(!waiting.length) return res.json({ ok:true, items:[] });
+  delete pending[key];
+  schedulePendingSave();
+  res.json({ ok:true, items:waiting });
+});
+
+/* ---- my own open listings ---- */
+app.post('/api/trade/mine', rateLimit, (req,res)=>{
+  const name = cleanName((req.body||{}).username);
+  if(!name) return res.status(400).json({ error:'Bad callsign.' });
+  const key = name.toLowerCase();
+  res.json({ ok:true, trades: Object.values(trades)
+    .filter(t=>t.sellerKey===key && t.status==='open')
+    .sort((a,b)=>b.created-a.created) });
+});
+
+/* ---- admin: the full log, so you can see every trade that happened ---- */
+app.post('/api/admin/trades', rateLimit, (req,res)=>{
+  if((req.body||{}).key !== ADMIN_KEY) return res.status(403).json({ error:'Wrong phrase.' });
+  res.json({ ok:true, trades: Object.values(trades)
+    .sort((a,b)=>(b.closed||b.created)-(a.closed||a.created)).slice(0,200) });
+});
+
+/* A tiny "are you awake?" endpoint. The game pings this first so it can
    warn you while a sleeping free Render server wakes up. */
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, pilots: Object.keys(scores).length, uptime: Math.round(process.uptime()) });
