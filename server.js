@@ -42,7 +42,35 @@ app.use((req, res, next) => {
 
 app.use(express.static('public'));      // your existing lines
 app.get('/scores', ...);                // carry on below, unchanged
-const PORT = process.env.PORT || 3000;
+// ---- Dusk Battery scoreboard -------------------------------------
+// Temporary store. This lives in the server's memory, so it empties
+// every time Render restarts or redeploys. That's fine for getting it
+// working — only these two functions change when you move to a real
+// database, nothing below them.
+let duskScores = [];
+
+function saveScore(name, score){
+  duskScores.push({ name, score, at: Date.now() });
+  duskScores.sort((a, b) => b.score - a.score);
+  duskScores = duskScores.slice(0, 100);     // keep only the top 100
+}
+
+function topScores(n){
+  return duskScores.slice(0, n);
+}
+
+app.get('/dusk/scores', async (req, res) => {
+  res.json(await topScores(20));
+});
+
+app.post('/dusk/scores', async (req, res) => {
+  // never trust what arrives — anyone on the internet can call this
+  const name  = String(req.body.name || '').slice(0, 12).replace(/[^\w \-]/g, '');
+  const score = Math.max(0, Math.min(999999, Math.round(Number(req.body.score) || 0)));
+  if (!name) return res.status(400).json({ error: 'name required' });
+  await saveScore(name, score);
+  res.json({ ok: true });
+});const PORT = process.env.PORT || 3000;
 
 /* Where to keep scores.json.
    On Render you can attach a Persistent Disk and set DATA_DIR to its
